@@ -1,3 +1,4 @@
+package com.kaluzaplotecka.milionerzy;
 import java.util.Deque;
 import java.util.List;
 

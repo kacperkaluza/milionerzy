@@ -1,4 +1,4 @@
-package PropertyTile;
+package com.kaluzaplotecka.milionerzy;
 
 public class PropertyTile {
     String city;
