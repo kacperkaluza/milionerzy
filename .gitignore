@@ -1,0 +1,25 @@
+# Java / Maven
+target/
+*.class
+*.jar
+
+# Maven wrapper
+.mvn/wrapper/maven-wrapper.jar
+
+# IDEs
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# OS and editors
+.DS_Store
+Thumbs.db
+.vscode/
+
+# Logs and temporary files
+*.log
+tmp/
+
+# Misc
+.env
