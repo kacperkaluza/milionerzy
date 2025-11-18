@@ -13,7 +13,8 @@ public class GameState {
     Deque<EventCard> chanceDeck;
     Deque<EventCard> communityChestDeck;
     int roundNumber;
-    Random rand;
+    transient Random rand;
+    public static final int PASS_START_REWARD = 200;
 
     public GameState(Board board, List<Player> players){
         this.board = board;
@@ -51,15 +52,40 @@ public class GameState {
         }
 
         int steps = rollDice();
-        p.moveBy(steps, board);
-        Tile t = board.getTile(p.getPosition());
-        if (t != null) t.onLand(this, p);
+        movePlayerBy(p, steps);
 
         if (p.isBankrupt()){
             handleBankruptcy(p);
         }
 
         nextTurn();
+    }
+
+    /**
+     * Move a specific player by given steps, handle passing Start reward and landing effects.
+     * This is testable because it accepts explicit steps.
+     */
+    public void movePlayerBy(Player p, int steps){
+        if (p == null) return;
+        int oldPos = p.getPosition();
+        int boardSize = board.size();
+        if (boardSize <= 0) return;
+
+        int rawNew = oldPos + steps;
+        boolean passedStart = rawNew >= boardSize;
+
+        p.moveBy(steps, board);
+
+        if (passedStart){
+            p.addMoney(PASS_START_REWARD);
+        }
+
+        Tile t = board.getTile(p.getPosition());
+        if (t != null) t.onLand(this, p);
+
+        if (p.isBankrupt()){
+            handleBankruptcy(p);
+        }
     }
 
     public void nextTurn(){
