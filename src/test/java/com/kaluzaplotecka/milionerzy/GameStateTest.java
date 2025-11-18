@@ -49,4 +49,17 @@ public class GameStateTest {
         assertEquals(a, state.getCurrentPlayer());
         assertEquals(1, state.roundNumber);
     }
+
+    @Test
+    public void passStartReward() {
+        Board board = new Board(java.util.List.of(new Tile(0,"Start"), new Tile(1,"A"), new Tile(2,"B")));
+        Player p = new Player("P", 100);
+        GameState state = new GameState(board, List.of(p));
+
+        // move player from pos 2 by 1 -> wraps to 0 and should pass start
+        p.moveTo(2);
+        state.movePlayerBy(p, 1);
+        assertEquals(GameState.PASS_START_REWARD + 100, p.getMoney());
+        assertEquals(0, p.getPosition());
+    }
 }
