@@ -12,6 +12,6 @@ public class Tile {
     public int getPosition(){ return position; }
 
     public void onLand(GameState state, Player player){
-        // default: nothing happens yet
+        // Type of action when a player lands on this tile
     }
 }

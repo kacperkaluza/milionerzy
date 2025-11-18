@@ -56,12 +56,10 @@ public class PropertyTile extends Tile {
     @Override
     public void onLand(GameState state, Player player){
         if (!isOwned()){
-            // auto-buy if player can afford (simple rule for now)
             buy(player);
         } else if (owner != player){
             chargeRent(player);
             if (player.isBankrupt()){
-                // simple bankruptcy handling: transfer properties back to bank
                 state.handleBankruptcy(player);
             }
         }
