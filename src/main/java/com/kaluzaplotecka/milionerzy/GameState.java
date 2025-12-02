@@ -367,6 +367,118 @@ public class GameState {
         return pendingTrade;
     }
     
+    // === SYSTEM AUKCJI ===
+    
+    private Auction currentAuction;
+    
+    /**
+     * Rozpoczyna aukcję nieruchomości.
+     * @param property nieruchomość do licytacji (musi być bez właściciela)
+     * @return true jeśli aukcja została rozpoczęta
+     */
+    public boolean startAuction(PropertyTile property) {
+        if (property == null) return false;
+        if (property.isOwned()) return false;
+        if (currentAuction != null && currentAuction.isActive()) return false;
+        if (players.size() < 2) return false;
+        
+        currentAuction = new Auction(property, players);
+        fireEvent(new GameEvent(
+            GameEvent.Type.AUCTION_STARTED,
+            null,
+            currentAuction,
+            "Rozpoczęto aukcję: " + property.city + " (min. " + currentAuction.getMinimumBid() + " zł)"
+        ));
+        return true;
+    }
+    
+    /**
+     * Gracz składa ofertę w trwającej aukcji.
+     * @param bidder gracz licytujący
+     * @param amount kwota oferty
+     * @return true jeśli oferta została przyjęta
+     */
+    public boolean placeBid(Player bidder, int amount) {
+        if (currentAuction == null || !currentAuction.isActive()) return false;
+        
+        boolean success = currentAuction.placeBid(bidder, amount);
+        if (success) {
+            fireEvent(new GameEvent(
+                GameEvent.Type.AUCTION_BID,
+                bidder,
+                amount,
+                bidder.getUsername() + " licytuje: " + amount + " zł"
+            ));
+        }
+        return success;
+    }
+    
+    /**
+     * Gracz rezygnuje z dalszej licytacji.
+     * @param player gracz który pasuje
+     */
+    public void passAuction(Player player) {
+        if (currentAuction == null || !currentAuction.isActive()) return;
+        
+        currentAuction.pass(player);
+        fireEvent(new GameEvent(
+            GameEvent.Type.AUCTION_BID,
+            player,
+            "pass",
+            player.getUsername() + " pasuje"
+        ));
+        
+        // Sprawdź czy aukcja się zakończyła
+        if (!currentAuction.isActive()) {
+            onAuctionEnded();
+        }
+    }
+    
+    /**
+     * Wymusza zakończenie aukcji.
+     */
+    public void endAuction() {
+        if (currentAuction == null) return;
+        
+        currentAuction.forceEnd();
+        onAuctionEnded();
+    }
+    
+    /**
+     * Wywoływane gdy aukcja się kończy.
+     */
+    private void onAuctionEnded() {
+        if (currentAuction == null) return;
+        
+        Player winner = currentAuction.getHighestBidder();
+        int winningBid = currentAuction.getHighestBid();
+        PropertyTile property = currentAuction.getProperty();
+        
+        String message;
+        if (winner != null) {
+            message = winner.getUsername() + " wygrał aukcję " + property.city + " za " + winningBid + " zł";
+        } else {
+            message = "Aukcja " + property.city + " zakończona bez zwycięzcy";
+        }
+        
+        fireEvent(new GameEvent(
+            GameEvent.Type.AUCTION_ENDED,
+            winner,
+            currentAuction,
+            message
+        ));
+        
+        currentAuction = null;
+    }
+    
+    public Auction getCurrentAuction() {
+        return currentAuction;
+    }
+    
+    public boolean hasActiveAuction() {
+        return currentAuction != null && currentAuction.isActive();
+    }
+    
     public List<Player> getPlayers() {
         return new ArrayList<>(players);
     }
