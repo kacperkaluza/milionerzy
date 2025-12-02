@@ -1,6 +1,9 @@
 package com.kaluzaplotecka.milionerzy;
 
-public class EventCard {
+import java.io.Serializable;
+
+public class EventCard implements Serializable {
+    private static final long serialVersionUID = 1L;
     public enum ActionType { PAY, RECEIVE, MOVE_TO, GO_TO_JAIL }
 
     String description;

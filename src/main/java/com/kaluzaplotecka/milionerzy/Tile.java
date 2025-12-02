@@ -1,6 +1,9 @@
 package com.kaluzaplotecka.milionerzy;
 
-public class Tile {
+import java.io.Serializable;
+
+public class Tile implements Serializable {
+    private static final long serialVersionUID = 1L;
     int position;
     String name;
 

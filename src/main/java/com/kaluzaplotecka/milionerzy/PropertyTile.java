@@ -1,6 +1,7 @@
 package com.kaluzaplotecka.milionerzy;
 
 public class PropertyTile extends Tile {
+    private static final long serialVersionUID = 1L;
     String city;
     int price;
     int baseRent;

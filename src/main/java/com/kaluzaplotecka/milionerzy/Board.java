@@ -1,8 +1,10 @@
 package com.kaluzaplotecka.milionerzy;
 
+import java.io.Serializable;
 import java.util.List;
 
-public class Board {
+public class Board implements Serializable {
+    private static final long serialVersionUID = 1L;
     List<Tile> tiles;
 
     public Board(List<Tile> tiles){

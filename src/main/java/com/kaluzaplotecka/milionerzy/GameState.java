@@ -1,12 +1,14 @@
 package com.kaluzaplotecka.milionerzy;
 
+import java.io.Serializable;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
 import java.util.Random;
 
-public class GameState {
+public class GameState implements Serializable {
+    private static final long serialVersionUID = 1L;
     Board board;
     List<Player> players;
     int currentPlayerIndex;
