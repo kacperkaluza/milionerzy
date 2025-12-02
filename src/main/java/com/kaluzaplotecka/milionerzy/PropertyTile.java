@@ -56,7 +56,8 @@ public class PropertyTile extends Tile {
     @Override
     public void onLand(GameState state, Player player){
         if (!isOwned()){
-            buy(player);
+            // Do not perform automatic purchase here. Purchasing is handled by GameState/UI.
+            return;
         } else if (owner != player){
             chargeRent(player);
             if (player.isBankrupt()){

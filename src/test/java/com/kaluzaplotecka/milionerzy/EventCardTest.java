@@ -37,6 +37,33 @@ public class EventCardTest {
     }
 
     @Test
+    public void moveToInvokesOnLand() {
+        // Recording tile implementation to detect onLand invocation
+        class RecTile extends Tile {
+            boolean landed = false;
+            RecTile(int pos, String name){ super(pos, name); }
+            @Override
+            public void onLand(GameState state, Player player){
+                landed = true;
+            }
+        }
+
+        RecTile t0 = new RecTile(0, "Start");
+        RecTile t1 = new RecTile(1, "One");
+        RecTile t2 = new RecTile(2, "Target");
+        Board board = new Board(List.of(t0, t1, t2));
+
+        Player p = new Player("Mover", 100);
+        GameState state = new GameState(board, List.of(p));
+
+        EventCard move = new EventCard("Go to Target", EventCard.ActionType.MOVE_TO, 2);
+        move.execute(state, p);
+
+        assertEquals(2, p.getPosition());
+        assertTrue(t2.landed, "Destination tile onLand should be invoked by MOVE_TO");
+    }
+
+    @Test
     public void goToJail() {
         Player p = new Player("Prisoner", 50);
         EventCard jail = new EventCard("Go to jail", EventCard.ActionType.GO_TO_JAIL, 0);
