@@ -254,7 +254,9 @@ public class MainMenu extends Application {
 
     private void onCreateGame() {
         System.out.println("Tworzenie nowej gry...");
-        // TODO: Przejście do ekranu tworzenia gry
+        // Przejście do planszy gry
+        GameBoardView boardView = new GameBoardView(primaryStage);
+        boardView.show();
     }
 
     private void onJoinGame() {
