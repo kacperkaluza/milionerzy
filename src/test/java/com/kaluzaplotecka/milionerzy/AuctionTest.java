@@ -124,7 +124,7 @@ public class AuctionTest {
         // Aukcja zakończona - sprawdź transfer
         assertEquals(alice, property.owner);
         assertEquals(400, alice.getMoney());  // 500 - 100
-        assertTrue(alice.ownedProperties.contains(property));
+        assertTrue(alice.getOwnedProperties().contains(property), "Highest bidder should own the property");
     }
     
     @Test

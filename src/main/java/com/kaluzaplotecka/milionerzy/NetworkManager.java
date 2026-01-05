@@ -89,7 +89,7 @@ public class NetworkManager {
     /**
      * Łączy się z hostem.
      */
-    public void connectToHost(String host, int port) throws IOException {
+    public void connectToHost(String host, int port, String playerName) throws IOException {
         if (running) throw new IllegalStateException("NetworkManager już działa");
         
         mode = Mode.CLIENT;
@@ -100,7 +100,7 @@ public class NetworkManager {
         clientIn = new ObjectInputStream(clientSocket.getInputStream());
         
         // Wysyłamy informację o połączeniu
-        send(new GameMessage(GameMessage.MessageType.CONNECT, playerId, playerId));
+        send(new GameMessage(GameMessage.MessageType.CONNECT, playerId, playerName));
         
         // Wątek nasłuchujący
         clientThread = new Thread(() -> {
@@ -131,7 +131,7 @@ public class NetworkManager {
     }
     
     public void connectToHost(String host) throws IOException {
-        connectToHost(host, DEFAULT_PORT);
+        connectToHost(host, DEFAULT_PORT, "Player");
     }
     
     // === WYSYŁANIE WIADOMOŚCI ===

@@ -40,6 +40,7 @@ public class GameMessage implements Serializable {
         
         // Kontrola gry
         START_GAME,         // host rozpoczyna grę
+        GAME_START,         // gra wystartowała (broadcast do wszystkich)
         PAUSE_GAME,         // pauza
         RESUME_GAME,        // wznowienie
         
@@ -52,6 +53,7 @@ public class GameMessage implements Serializable {
     private final String targetId;      // ID gracza docelowego (null = broadcast)
     private final Object payload;       // dane wiadomości
     private final long timestamp;
+    private boolean broadcast = false;  // czy rozgłosić do wszystkich
     
     public GameMessage(MessageType type, String senderId, String targetId, Object payload) {
         this.type = type;
@@ -76,7 +78,11 @@ public class GameMessage implements Serializable {
     public long getTimestamp() { return timestamp; }
     
     public boolean isBroadcast() {
-        return targetId == null;
+        return broadcast || targetId == null;
+    }
+    
+    public void setBroadcast(boolean broadcast) {
+        this.broadcast = broadcast;
     }
     
     @Override

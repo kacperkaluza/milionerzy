@@ -19,12 +19,16 @@ import javafx.scene.text.TextAlignment;
 import javafx.stage.Stage;
 import javafx.util.Duration;
 
+import java.util.List;
 import java.util.Random;
 
 public class GameBoardView {
     
     private Stage stage;
+    private final List<Player> players;
     private Label[] diceLabels;
+    private StackPane[] diceStacks;
+    private Button rollButton;
     private Random random = new Random();
     private VBox[] playerPanels;
     
@@ -85,9 +89,11 @@ public class GameBoardView {
         {"Góra\nŚwiętokrzyska", "property", "#0000FF", "400"}
     };
     
-    public GameBoardView(Stage stage) {
+    public GameBoardView(Stage stage, List<Player> players) {
         this.stage = stage;
+        this.players = players;
         this.diceLabels = new Label[2];
+        this.diceStacks = new StackPane[2];
         this.playerPanels = new VBox[4];
     }
     
@@ -98,26 +104,36 @@ public class GameBoardView {
         root.setAlignment(Pos.CENTER);
         root.setPadding(new Insets(10));
         
-        // Panele graczy (mniejsze, kompaktowe)
-        VBox player1 = createPlayerPanel("Gracz 1", 1500, "#667eea");
-        VBox player2 = createPlayerPanel("Gracz 2", 1500, "#e74c3c");
-        VBox player3 = createPlayerPanel("Gracz 3", 1500, "#27ae60");
-        VBox player4 = createPlayerPanel("Gracz 4", 1500, "#f39c12");
-        playerPanels[0] = player1;
-        playerPanels[1] = player2;
-        playerPanels[2] = player3;
-        playerPanels[3] = player4;
+        // Default colors for up to 4 players
+        String[] colors = {"#667eea", "#e74c3c", "#27ae60", "#f39c12"};
         
+        // Create panels for present players
+        for (int i = 0; i < 4; i++) {
+            if (i < players.size()) {
+                Player p = players.get(i);
+                playerPanels[i] = createPlayerPanel(p.getUsername(), p.getMoney(), colors[i%colors.length]);
+            } else {
+                // Invisible placeholder or null? 
+                // Let's create an invisible/empty panel to maintain layout if needed,
+                // or just handle it in the layout addition below.
+                playerPanels[i] = null;
+            }
+        }
+
         // Lewa kolumna - gracze 1 i 3
         VBox leftPlayers = new VBox(20);
         leftPlayers.setAlignment(Pos.CENTER);
-        leftPlayers.getChildren().addAll(player1, player3);
+        if (playerPanels[0] != null) leftPlayers.getChildren().add(playerPanels[0]);
+        if (playerPanels[2] != null) leftPlayers.getChildren().add(playerPanels[2]);
         
         // Prawa kolumna - gracze 2 i 4 + przycisk pauzy
         VBox rightPlayers = new VBox(20);
         rightPlayers.setAlignment(Pos.CENTER);
+        
+        if (playerPanels[1] != null) rightPlayers.getChildren().add(playerPanels[1]);
         Button pauseBtn = createPauseButton();
-        rightPlayers.getChildren().addAll(player2, pauseBtn, player4);
+        rightPlayers.getChildren().add(pauseBtn); // Pause button always present
+        if (playerPanels[3] != null) rightPlayers.getChildren().add(playerPanels[3]);
         
         // Plansza centralna
         Pane boardPane = createBoard();
@@ -459,12 +475,13 @@ public class GameBoardView {
         
         for (int i = 0; i < 2; i++) {
             StackPane dice = createDice(1);
+            diceStacks[i] = dice;
             diceLabels[i] = (Label) ((StackPane) dice.getChildren().get(0)).getChildren().get(1);
             diceBox.getChildren().add(dice);
         }
         
         // Przycisk rzutu
-        Button rollButton = new Button("🎲  Losuj");
+        rollButton = new Button("🎲  Losuj");
         rollButton.setStyle(
             "-fx-background-color: #3498db;" +
             "-fx-text-fill: white;" +
@@ -540,17 +557,34 @@ public class GameBoardView {
     }
     
     private void rollDice() {
+        if (rollButton != null) {
+            rollButton.setDisable(true);
+        }
+        
         // Animacja rzutu kostkami
-        for (Label diceLabel : diceLabels) {
-            RotateTransition rotate = new RotateTransition(Duration.millis(500), diceLabel.getParent().getParent());
+        for (int i = 0; i < diceStacks.length; i++) {
+            StackPane diceStack = diceStacks[i];
+            Label diceLabel = diceLabels[i];
+            
+            RotateTransition rotate = new RotateTransition(Duration.millis(500), diceStack);
             rotate.setByAngle(360);
             rotate.setCycleCount(2);
+            
+            // Re-enable button after the last dice animation finishes
+            if (i == diceStacks.length - 1) {
+                rotate.setOnFinished(e -> {
+                    if (rollButton != null) {
+                        rollButton.setDisable(false);
+                    }
+                });
+            }
+            
             rotate.play();
             
             // Animacja zmiany wartości
             Timeline timeline = new Timeline();
-            for (int i = 0; i < 10; i++) {
-                KeyFrame keyFrame = new KeyFrame(Duration.millis(i * 80), e -> {
+            for (int k = 0; k < 10; k++) {
+                KeyFrame keyFrame = new KeyFrame(Duration.millis(k * 80), e -> {
                     diceLabel.setText(getDiceSymbol(random.nextInt(6) + 1));
                 });
                 timeline.getKeyFrames().add(keyFrame);

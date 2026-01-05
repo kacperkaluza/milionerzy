@@ -57,11 +57,11 @@ public class NetworkGameTest {
         assertTrue(hostManager.isRunning());
         
         // Klient 1 łączy się
-        client1Manager.connectToHost("localhost", TEST_PORT);
+        client1Manager.connectToHost("localhost", TEST_PORT, "player1");
         assertEquals(NetworkManager.Mode.CLIENT, client1Manager.getMode());
         
         // Klient 2 łączy się
-        client2Manager.connectToHost("localhost", TEST_PORT);
+        client2Manager.connectToHost("localhost", TEST_PORT, "player2");
         assertEquals(NetworkManager.Mode.CLIENT, client2Manager.getMode());
         
         // Czekaj na połączenia
@@ -83,11 +83,13 @@ public class NetworkGameTest {
         
         // Ustaw handlery wiadomości
         client1Manager.setMessageHandler(msg -> {
+            if (msg.getType() == GameMessage.MessageType.CONNECT) return;
             receivedByClient1.set(msg);
             messageLatch.countDown();
         });
         
         client2Manager.setMessageHandler(msg -> {
+            if (msg.getType() == GameMessage.MessageType.CONNECT) return;
             receivedByClient2.set(msg);
             messageLatch.countDown();
         });
@@ -95,8 +97,8 @@ public class NetworkGameTest {
         // Start i połączenie
         hostManager.startHost(TEST_PORT);
         Thread.sleep(100);
-        client1Manager.connectToHost("localhost", TEST_PORT);
-        client2Manager.connectToHost("localhost", TEST_PORT);
+        client1Manager.connectToHost("localhost", TEST_PORT, "player1");
+        client2Manager.connectToHost("localhost", TEST_PORT, "player2");
         Thread.sleep(200);
         
         // Host wysyła broadcast
@@ -134,7 +136,7 @@ public class NetworkGameTest {
         // Start i połączenie
         hostManager.startHost(TEST_PORT);
         Thread.sleep(100);
-        client1Manager.connectToHost("localhost", TEST_PORT);
+        client1Manager.connectToHost("localhost", TEST_PORT, "player1");
         Thread.sleep(200);
         
         // Klient wysyła rzut kostką
@@ -180,7 +182,7 @@ public class NetworkGameTest {
         // Start i połączenie
         hostManager.startHost(TEST_PORT);
         Thread.sleep(100);
-        client1Manager.connectToHost("localhost", TEST_PORT);
+        client1Manager.connectToHost("localhost", TEST_PORT, "player1");
         Thread.sleep(200);
         
         // === SYMULACJA TURY ===
@@ -258,8 +260,8 @@ public class NetworkGameTest {
         // Start i połączenie
         hostManager.startHost(TEST_PORT);
         Thread.sleep(100);
-        client1Manager.connectToHost("localhost", TEST_PORT);
-        client2Manager.connectToHost("localhost", TEST_PORT);
+        client1Manager.connectToHost("localhost", TEST_PORT, "player1");
+        client2Manager.connectToHost("localhost", TEST_PORT, "player2");
         Thread.sleep(200);
         
         // Gracz 1 wysyła ofertę handlową (używamy prostej mapy jako payload)
@@ -307,8 +309,8 @@ public class NetworkGameTest {
         // Start i połączenie
         hostManager.startHost(TEST_PORT);
         Thread.sleep(100);
-        client1Manager.connectToHost("localhost", TEST_PORT);
-        client2Manager.connectToHost("localhost", TEST_PORT);
+        client1Manager.connectToHost("localhost", TEST_PORT, "player1");
+        client2Manager.connectToHost("localhost", TEST_PORT, "player2");
         Thread.sleep(200);
         
         // Host rozpoczyna aukcję
@@ -367,7 +369,7 @@ public class NetworkGameTest {
         // Start i połączenie
         hostManager.startHost(TEST_PORT);
         Thread.sleep(100);
-        client1Manager.connectToHost("localhost", TEST_PORT);
+        client1Manager.connectToHost("localhost", TEST_PORT, "player1");
         Thread.sleep(200);
         
         // Stwórz przykładowy stan gry
@@ -413,7 +415,7 @@ public class NetworkGameTest {
         // Start i połączenie
         hostManager.startHost(TEST_PORT);
         Thread.sleep(100);
-        client1Manager.connectToHost("localhost", TEST_PORT);
+        client1Manager.connectToHost("localhost", TEST_PORT, "player1");
         Thread.sleep(200);
         
         assertEquals(1, hostManager.getConnectedClientsCount());
@@ -450,8 +452,8 @@ public class NetworkGameTest {
         // Start i połączenie
         hostManager.startHost(TEST_PORT);
         Thread.sleep(100);
-        client1Manager.connectToHost("localhost", TEST_PORT);
-        client2Manager.connectToHost("localhost", TEST_PORT);
+        client1Manager.connectToHost("localhost", TEST_PORT, "player1");
+        client2Manager.connectToHost("localhost", TEST_PORT, "player2");
         Thread.sleep(200);
         
         // Host przekazuje wiadomości czatu

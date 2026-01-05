@@ -8,9 +8,9 @@ import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
-import javafx.scene.control.Button;
-import javafx.scene.control.Label;
+import javafx.scene.control.*;
 import javafx.scene.effect.DropShadow;
+import javafx.scene.layout.GridPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Rectangle;
@@ -254,14 +254,86 @@ public class MainMenu extends Application {
 
     private void onCreateGame() {
         System.out.println("Tworzenie nowej gry...");
-        // Przejście do planszy gry
-        GameBoardView boardView = new GameBoardView(primaryStage);
-        boardView.show();
+        
+        // Dialog wprowadzania nazwy gracza
+        TextInputDialog dialog = new TextInputDialog("Gracz");
+        dialog.setTitle("Stwórz Grę");
+        dialog.setHeaderText("Wprowadź swoją nazwę gracza");
+        dialog.setContentText("Nazwa:");
+        
+        // Stylizacja dialogu
+        dialog.getDialogPane().setStyle(
+            "-fx-background-color: white; " +
+            "-fx-font-size: 14px;"
+        );
+        
+        dialog.showAndWait().ifPresent(playerName -> {
+            if (!playerName.trim().isEmpty()) {
+                LobbyView lobby = new LobbyView(
+                    primaryStage, 
+                    playerName.trim(), 
+                    () -> start(primaryStage)  // Callback powrotu
+                );
+                lobby.show();
+            }
+        });
     }
 
     private void onJoinGame() {
         System.out.println("Dołączanie do gry...");
-        // TODO: Przejście do ekranu dołączania
+        
+        // Dialog wprowadzania nazwy i kodu pokoju
+        Dialog<String[]> dialog = new Dialog<>();
+        dialog.setTitle("Dołącz do Gry");
+        dialog.setHeaderText("Wprowadź dane do dołączenia");
+        
+        ButtonType joinButtonType = new ButtonType("Dołącz", ButtonBar.ButtonData.OK_DONE);
+        dialog.getDialogPane().getButtonTypes().addAll(joinButtonType, ButtonType.CANCEL);
+        
+        GridPane grid = new GridPane();
+        grid.setHgap(10);
+        grid.setVgap(10);
+        grid.setPadding(new Insets(20, 100, 10, 10));
+        
+        TextField playerNameField = new TextField();
+        playerNameField.setPromptText("Twoja nazwa");
+        TextField roomCodeField = new TextField();
+        roomCodeField.setPromptText("Kod pokoju (np. ABC123)");
+        TextField hostAddressField = new TextField("localhost");
+        hostAddressField.setPromptText("Adres hosta");
+        
+        grid.add(new Label("Nazwa gracza:"), 0, 0);
+        grid.add(playerNameField, 1, 0);
+        grid.add(new Label("Kod pokoju:"), 0, 1);
+        grid.add(roomCodeField, 1, 1);
+        grid.add(new Label("Adres hosta:"), 0, 2);
+        grid.add(hostAddressField, 1, 2);
+        
+        dialog.getDialogPane().setContent(grid);
+        
+        dialog.setResultConverter(dialogButton -> {
+            if (dialogButton == joinButtonType) {
+                return new String[]{
+                    playerNameField.getText().trim(),
+                    roomCodeField.getText().trim().toUpperCase(),
+                    hostAddressField.getText().trim()
+                };
+            }
+            return null;
+        });
+        
+        dialog.showAndWait().ifPresent(result -> {
+            if (!result[0].isEmpty() && !result[1].isEmpty()) {
+                LobbyView lobby = new LobbyView(
+                    primaryStage,
+                    result[0],      // playerName
+                    result[1],      // roomCode
+                    result[2],      // hostAddress
+                    () -> start(primaryStage)
+                );
+                lobby.show();
+            }
+        });
     }
 
     private void onSettings() {
