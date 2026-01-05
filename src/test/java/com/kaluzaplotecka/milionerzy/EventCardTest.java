@@ -70,6 +70,6 @@ public class EventCardTest {
         assertFalse(p.isInJail());
         jail.execute(null, p);
         assertTrue(p.isInJail());
-        assertEquals(0, p.jailTurns);
+        assertEquals(0, p.getJailTurns());
     }
 }

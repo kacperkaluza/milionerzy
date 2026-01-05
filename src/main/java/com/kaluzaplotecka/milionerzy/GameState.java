@@ -45,8 +45,8 @@ public class GameState implements Serializable {
         Player p = getCurrentPlayer();
         if (p == null) return;
         if (p.isInJail()){
-            p.jailTurns++;
-            if (p.jailTurns >= 3){
+            p.incrementJailTurns();
+            if (p.getJailTurns() >= 3){
                 p.releaseFromJail();
             }
             nextTurn();
@@ -97,7 +97,7 @@ public class GameState implements Serializable {
     }
 
     public void handleBankruptcy(Player p){
-        for (PropertyTile prop : new ArrayList<>(p.ownedProperties)){
+        for (PropertyTile prop : new ArrayList<>(p.getOwnedProperties())){
             prop.owner = null;
             p.removeProperty(prop);
         }
@@ -184,8 +184,8 @@ public class GameState implements Serializable {
         if (p == null) return null;
 
         if (p.isInJail()){
-            p.jailTurns++;
-            if (p.jailTurns >= 3){
+            p.incrementJailTurns();
+            if (p.getJailTurns() >= 3){
                 p.releaseFromJail();
             }
             nextTurn();
