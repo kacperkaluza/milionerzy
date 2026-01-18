@@ -1,5 +1,7 @@
 package com.kaluzaplotecka.milionerzy;
 
+import com.kaluzaplotecka.milionerzy.view.MainMenu;
+
 import javafx.application.Application;
 
 public class Launcher {
