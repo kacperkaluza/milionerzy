@@ -18,7 +18,7 @@ public class PropertyTileTest {
         boolean bought = prop.buy(buyer);
         assertTrue(bought);
         assertTrue(prop.isOwned());
-        assertEquals(buyer, prop.owner);
+        assertEquals(buyer, prop.getOwner());
         assertEquals(300, buyer.getMoney());
     }
 

@@ -131,7 +131,7 @@ public class AuctionTest {
         auction.pass(bob);
         
         // Aukcja zakończona - sprawdź transfer
-        assertEquals(alice, property.owner);
+        assertEquals(alice, property.getOwner());
         assertEquals(400, alice.getMoney());  // 500 - 100
         assertTrue(alice.getOwnedProperties().contains(property), "Highest bidder should own the property");
     }
@@ -144,7 +144,7 @@ public class AuctionTest {
         auction.pass(bob);
         
         assertEquals(Auction.Status.CANCELLED, auction.getStatus());
-        assertNull(property.owner);
+        assertNull(property.getOwner());
     }
     
     @Test
@@ -155,7 +155,7 @@ public class AuctionTest {
         auction.forceEnd();
         
         assertEquals(Auction.Status.ENDED, auction.getStatus());
-        assertEquals(alice, property.owner);
+        assertEquals(alice, property.getOwner());
     }
     
     @Test
@@ -165,7 +165,7 @@ public class AuctionTest {
         auction.forceEnd();
         
         assertEquals(Auction.Status.CANCELLED, auction.getStatus());
-        assertNull(property.owner);
+        assertNull(property.getOwner());
     }
     
     @Test
@@ -205,7 +205,7 @@ public class AuctionTest {
     
     @Test
     void gameState_cannotStartAuctionForOwnedProperty() {
-        property.owner = alice;
+        property.setOwner(alice);
         
         assertFalse(gameState.startAuction(property));
         assertNull(gameState.getCurrentAuction());
@@ -239,7 +239,7 @@ public class AuctionTest {
         assertEquals(GameEvent.Type.AUCTION_ENDED, events.get(4).getType());
         
         assertNull(gameState.getCurrentAuction());
-        assertEquals(alice, property.owner);
+        assertEquals(alice, property.getOwner());
     }
     
     @Test
@@ -252,7 +252,7 @@ public class AuctionTest {
         gameState.endAuction();
         
         assertEquals(GameEvent.Type.AUCTION_ENDED, events.get(events.size() - 1).getType());
-        assertEquals(bob, property.owner);
+        assertEquals(bob, property.getOwner());
         assertEquals(200, bob.getMoney());  // 300 - 100
     }
     

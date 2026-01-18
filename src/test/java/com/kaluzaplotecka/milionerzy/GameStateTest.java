@@ -26,7 +26,7 @@ public class GameStateTest {
 
         // give p1 a property
         PropertyTile prop = new PropertyTile(1, "Prop", 50, 10);
-        prop.owner = p1;
+        prop.setOwner(p1);
         p1.addProperty(prop);
 
         List<Player> players = List.of(p1, p2);
@@ -38,8 +38,8 @@ public class GameStateTest {
 
         state.handleBankruptcy(p1);
         // p1 should be removed and property returned to bank
-        assertFalse(state.players.contains(p1));
-        assertNull(prop.owner);
+        assertFalse(state.getPlayers().contains(p1));
+        assertNull(prop.getOwner());
     }
 
     @Test
@@ -94,7 +94,7 @@ public class GameStateTest {
         Player tenant = new Player("Tenant", 100);
 
         // Owner already owns the property
-        expensive.owner = owner;
+        expensive.setOwner(owner);
         owner.addProperty(expensive);
 
         GameState gs = new GameState(board, List.of(owner, tenant));

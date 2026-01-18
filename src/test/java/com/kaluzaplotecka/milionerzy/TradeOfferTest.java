@@ -31,11 +31,11 @@ public class TradeOfferTest {
         bob = new Player("Bob", 1000);
         
         prop1 = new PropertyTile(1, "Kielce", 200, 50);
-        prop1.owner = alice;
+        prop1.setOwner(alice);
         alice.addProperty(prop1);
         
         prop2 = new PropertyTile(2, "Sandomierz", 150, 40);
-        prop2.owner = bob;
+        prop2.setOwner(bob);
         bob.addProperty(prop2);
         
         Board board = new Board(List.of(new Tile(0, "Start"), prop1, prop2));
@@ -94,8 +94,8 @@ public class TradeOfferTest {
         assertEquals(TradeOffer.Status.ACCEPTED, offer.getStatus());
         
         // Sprawdź transfer nieruchomości
-        assertEquals(bob, prop1.owner, "Bob powinien mieć Kielce");
-        assertEquals(alice, prop2.owner, "Alice powinna mieć Sandomierz");
+        assertEquals(bob, prop1.getOwner(), "Bob powinien mieć Kielce");
+        assertEquals(alice, prop2.getOwner(), "Alice powinna mieć Sandomierz");
         
         // Sprawdź transfer pieniędzy: Alice: 1000 - 50 + 100 = 1050, Bob: 1000 + 50 - 100 = 950
         assertEquals(1050, alice.getMoney());
@@ -149,7 +149,7 @@ public class TradeOfferTest {
         assertEquals(GameEvent.Type.TRADE_ACCEPTED, receivedEvents.get(1).getType());
         
         // Sprawdź że wymiana się wykonała
-        assertEquals(bob, prop1.owner);
+        assertEquals(bob, prop1.getOwner());
         assertEquals(1200, alice.getMoney());  // 1000 + 200
         assertEquals(800, bob.getMoney());     // 1000 - 200
     }
