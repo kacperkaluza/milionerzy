@@ -1,6 +1,13 @@
 package com.kaluzaplotecka.milionerzy;
 
 import org.junit.jupiter.api.Test;
+
+import com.kaluzaplotecka.milionerzy.model.Board;
+import com.kaluzaplotecka.milionerzy.model.GameState;
+import com.kaluzaplotecka.milionerzy.model.Player;
+import com.kaluzaplotecka.milionerzy.model.cards.EventCard;
+import com.kaluzaplotecka.milionerzy.model.tiles.Tile;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 import java.util.List;

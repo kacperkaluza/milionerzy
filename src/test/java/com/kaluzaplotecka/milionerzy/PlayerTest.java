@@ -1,6 +1,11 @@
 package com.kaluzaplotecka.milionerzy;
 
 import org.junit.jupiter.api.Test;
+
+import com.kaluzaplotecka.milionerzy.model.Board;
+import com.kaluzaplotecka.milionerzy.model.Player;
+import com.kaluzaplotecka.milionerzy.model.tiles.Tile;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 public class PlayerTest {

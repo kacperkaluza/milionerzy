@@ -5,6 +5,9 @@ import org.junit.jupiter.api.Test;
 import org.testfx.framework.junit5.ApplicationTest;
 import org.testfx.util.WaitForAsyncUtils;
 
+import com.kaluzaplotecka.milionerzy.model.Player;
+import com.kaluzaplotecka.milionerzy.view.GameBoardView;
+
 import java.util.ArrayList;
 import java.util.List;
 
