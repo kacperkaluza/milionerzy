@@ -54,6 +54,14 @@ public class GameState implements Serializable {
         }
 
         int steps = rollDice();
+        
+        fireEvent(new GameEvent(
+            GameEvent.Type.DICE_ROLLED,
+            null,
+            steps,
+            "Wylosowano: " + steps
+        ));
+        
         movePlayerBy(p, steps);
 
         if (p.isBankrupt()){
@@ -77,6 +85,13 @@ public class GameState implements Serializable {
         boolean passedStart = rawNew >= boardSize;
 
         p.moveBy(steps, board);
+        
+        fireEvent(new GameEvent(
+            GameEvent.Type.PLAYER_MOVED,
+            p,
+            steps, // Pass steps as data to know how many fields to animate if needed
+            p.getUsername() + " przeszedł " + steps + " pól"
+        ));
 
         if (passedStart){
             p.addMoney(PASS_START_REWARD);

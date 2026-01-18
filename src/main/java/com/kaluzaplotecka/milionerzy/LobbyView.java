@@ -718,7 +718,7 @@ public class LobbyView {
 
         // Przejście do widoku gry
         Platform.runLater(() -> {
-            GameBoardView boardView = new GameBoardView(stage, gamePlayers);
+            GameBoardView boardView = new GameBoardView(stage, gamePlayers, networkManager, playerId);
             boardView.show();
         });
     }

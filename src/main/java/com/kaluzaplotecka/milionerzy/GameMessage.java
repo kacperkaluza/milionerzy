@@ -22,6 +22,9 @@ public class GameMessage implements Serializable {
         
         // Akcje gracza
         ROLL_DICE,          // gracz rzuca kostką
+        MOVE,               // gracz się porusza
+        DICE_RESULT,        // wynik rzutu kostką
+        NEXT_TURN,          // gracz kończy turę
         BUY_PROPERTY,       // gracz kupuje nieruchomość
         DECLINE_PURCHASE,   // gracz rezygnuje z kupna
         END_TURN,           // gracz kończy turę
@@ -48,11 +51,11 @@ public class GameMessage implements Serializable {
         ERROR               // komunikat błędu
     }
     
-    private final MessageType type;
+    private final MessageType type;     // typ wiadomości
     private final String senderId;      // ID gracza wysyłającego
     private final String targetId;      // ID gracza docelowego (null = broadcast)
     private final Object payload;       // dane wiadomości
-    private final long timestamp;
+    private final long timestamp;       // czas wysłania
     private boolean broadcast = false;  // czy rozgłosić do wszystkich
     
     public GameMessage(MessageType type, String senderId, String targetId, Object payload) {
@@ -75,7 +78,8 @@ public class GameMessage implements Serializable {
     public String getSenderId() { return senderId; }
     public String getTargetId() { return targetId; }
     public Object getPayload() { return payload; }
-    public long getTimestamp() { return timestamp; }
+    public long getTimestamp() { return timestamp; } 
+    
     
     public boolean isBroadcast() {
         return broadcast || targetId == null;

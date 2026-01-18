@@ -1,5 +1,8 @@
 package com.kaluzaplotecka.milionerzy;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import javafx.animation.FadeTransition;
 import javafx.animation.ScaleTransition;
 import javafx.animation.TranslateTransition;
@@ -96,6 +99,7 @@ public class MainMenu extends Application {
         // Przyciski menu z animacjami
         Button createGameBtn = createMenuButton("🎮  Stwórz Grę", false);
         Button joinGameBtn = createMenuButton("🌐  Dołącz do gry", false);
+        Button localGameBtn = createMenuButton("🏠 Gra Lokalna (Hotseat)", false);
         Button settingsBtn = createMenuButton("⚙️  Ustawienia", false);
         Button loadGameBtn = createMenuButton("📂  Wczytaj grę", false);
         Button authorsBtn = createMenuButton("👥  Autorzy", false);
@@ -104,6 +108,7 @@ public class MainMenu extends Application {
         // Akcje przycisków
         createGameBtn.setOnAction(e -> onCreateGame());
         joinGameBtn.setOnAction(e -> onJoinGame());
+        localGameBtn.setOnAction(e -> onLocalGame());
         settingsBtn.setOnAction(e -> onSettings());
         loadGameBtn.setOnAction(e -> onLoadGame());
         authorsBtn.setOnAction(e -> onAuthors());
@@ -120,6 +125,7 @@ public class MainMenu extends Application {
         buttonsBox.getChildren().addAll(
             createGameBtn, 
             joinGameBtn, 
+            localGameBtn,
             settingsBtn, 
             loadGameBtn, 
             authorsBtn, 
@@ -336,6 +342,23 @@ public class MainMenu extends Application {
         });
     }
 
+    private void onLocalGame() {
+        System.out.println("Gra Lokalna...");
+
+        List<Player> localPlayers = new ArrayList<>();
+        localPlayers.add(new Player("Gracz 1", 1500));
+        localPlayers.add(new Player("Gracz 2", 1200));
+        localPlayers.add(new Player("Gracz 3", 1000));
+        localPlayers.add(new Player("Gracz 4", 800));
+
+        try {
+            GameBoardView gameBoard = new GameBoardView(primaryStage, localPlayers, null, localPlayers.get(0).getId());
+            gameBoard.show();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
     private void onSettings() {
         System.out.println("Ustawienia...");
         // TODO: Przejście do ekranu ustawień
@@ -349,5 +372,11 @@ public class MainMenu extends Application {
     private void onAuthors() {
         System.out.println("Autorzy...");
         // TODO: Wyświetlenie informacji o autorach
+    }
+
+    @Override
+    public void stop() throws Exception {
+        super.stop();
+        System.exit(0);
     }
 }

@@ -22,7 +22,14 @@ import javafx.util.Duration;
 import java.util.List;
 import java.util.Random;
 
-public class GameBoardView {
+import javafx.animation.SequentialTransition;
+import javafx.animation.TranslateTransition;
+import javafx.geometry.Point2D;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.ArrayList;
+
+public class GameBoardView implements GameEventListener {
     
     private Stage stage;
     private final List<Player> players;
@@ -31,6 +38,11 @@ public class GameBoardView {
     private Button rollButton;
     private Random random = new Random();
     private VBox[] playerPanels;
+    private Map<Player, Circle> playerPawns;
+    private Pane playerLayer;
+    private GameState gameState;
+    private NetworkManager networkManager;
+    private String playerId;
     
     // Nazwy pól świętokrzyskich
     private static final String[][] BOARD_TILES = {
@@ -89,12 +101,56 @@ public class GameBoardView {
         {"Góra\nŚwiętokrzyska", "property", "#0000FF", "400"}
     };
     
-    public GameBoardView(Stage stage, List<Player> players) {
+    public GameBoardView(Stage stage, List<Player> players, NetworkManager networkManager, String playerId) {
         this.stage = stage;
         this.players = players;
+        this.playerId = playerId;
+        this.networkManager = networkManager;
+        
         this.diceLabels = new Label[2];
         this.diceStacks = new StackPane[2];
         this.playerPanels = new VBox[4];
+        this.playerPawns = new HashMap<>(); // Initialize map
+
+        Board board = createBoardModel();
+        this.gameState = new GameState(board, players);
+        this.gameState.addEventListener(this);
+
+        if (this.networkManager != null) {
+            setupNetworkListener();
+        }
+    }
+    
+    private void setupNetworkListener() {
+        networkManager.setMessageHandler(msg -> {
+            javafx.application.Platform.runLater(() -> {
+                switch (msg.getType()) {
+                    case MOVE -> handleMove(msg);
+                }
+            });
+        });
+    }
+    
+    private void handleMove(GameMessage msg) {
+        String senderId = msg.getSenderId();
+        if (senderId.equals(this.playerId)) {
+            return;
+        }
+
+        Player player = players.stream()
+            .filter(p -> p.getId().equals(senderId))
+            .findFirst()
+            .orElse(null);
+        if (player != null) {
+            int newPos = (int) msg.getContent();
+            int oldPos = player.getPosition();
+            
+            player.setPosition(newPos);
+            
+            animatePlayerMovement(player, oldPos, newPos);
+        }
+
+        
     }
     
     public Scene createScene() {
@@ -203,7 +259,7 @@ public class GameBoardView {
             double x = 0;
             double y = BOARD_SIZE - CORNER_SIZE - (i + 1) * TILE_WIDTH;
             String[] tileData = BOARD_TILES[11 + i];
-            boardContainer.getChildren().add(createTile(x, y - (TILE_HEIGHT - TILE_WIDTH), TILE_HEIGHT, TILE_WIDTH, tileData, true));
+            boardContainer.getChildren().add(createTile(x, y, TILE_HEIGHT, TILE_WIDTH, tileData, true));
         }
         
         // Róg DARMOWY PARKING (lewy górny)
@@ -252,6 +308,43 @@ public class GameBoardView {
         StackPane wrapper = new StackPane(boardContainer);
         wrapper.setAlignment(Pos.CENTER);
         
+        // Warstwa dla pionków
+        playerLayer = new Pane();
+        playerLayer.setPickOnBounds(false); // Pozwalamy klikać "przez" warstwę pionków
+        playerLayer.setPrefSize(BOARD_SIZE, BOARD_SIZE);
+        
+        // Inicjalizacja pionków
+        for (int i = 0; i < players.size(); i++) {
+            Player p = players.get(i);
+            String colorHex = switch (i % 4) {
+                case 0 -> "#667eea";
+                case 1 -> "#e74c3c";
+                case 2 -> "#27ae60";
+                case 3 -> "#f39c12";
+                default -> "black";
+            };
+            
+            Circle pawn = new Circle(10);
+            pawn.setFill(Color.web(colorHex));
+            pawn.setStroke(Color.BLACK);
+            pawn.setStrokeWidth(1);
+            
+            // Ustawienie na start (pole 0)
+            Point2D startPos = getTileCenter(0);
+            
+            // Mały offset żeby pionki na siebie nie wchodziły
+            double offsetX = (i % 2 == 0 ? -5 : 5);
+            double offsetY = (i < 2 ? -5 : 5);
+            
+            pawn.setTranslateX(startPos.getX() + offsetX);
+            pawn.setTranslateY(startPos.getY() + offsetY);
+            
+            playerPawns.put(p, pawn);
+            playerLayer.getChildren().add(pawn);
+        }
+        
+        boardContainer.getChildren().add(playerLayer);
+
         return wrapper;
     }
     
@@ -561,6 +654,12 @@ public class GameBoardView {
             rollButton.setDisable(true);
         }
         
+        // Wywołujemy logikę gry - to spowoduje wyemitowanie zdarzeń DICE_ROLLED i PLAYER_MOVED
+        // UI zaktualizuje się w odpowiedzi na te zdarzenia
+        gameState.moveCurrentPlayer();
+    }
+    
+    private void animateDiceRoll(int sum) {
         // Animacja rzutu kostkami
         for (int i = 0; i < diceStacks.length; i++) {
             StackPane diceStack = diceStacks[i];
@@ -583,6 +682,7 @@ public class GameBoardView {
             
             // Animacja zmiany wartości
             Timeline timeline = new Timeline();
+            // Losowe cyfry podczas turlania
             for (int k = 0; k < 10; k++) {
                 KeyFrame keyFrame = new KeyFrame(Duration.millis(k * 80), e -> {
                     diceLabel.setText(getDiceSymbol(random.nextInt(6) + 1));
@@ -590,8 +690,20 @@ public class GameBoardView {
                 timeline.getKeyFrames().add(keyFrame);
             }
             
+            // Ustawienie wyniku
+            // Dzielimy sumę na dwie kości (uproszczone, bo GameState zwraca sumę)
+            // Jeśli sum > 6, pierwsza 6, druga reszta.
+            // Ale to trochę kiepsko wygląda.
+            // Lepiej byłoby gdyby GameState zwracał dwie liczby, ale rollDice zwraca int sum.
+            // Zasymulujmy to wizualnie.
+            final int finalValue;
+            if (i == 0) {
+                 finalValue = sum / 2; // pierwsza kość
+            } else {
+                 finalValue = sum - (sum / 2); // druga kość
+            }
+            
             timeline.setOnFinished(e -> {
-                int finalValue = random.nextInt(6) + 1;
                 diceLabel.setText(getDiceSymbol(finalValue));
             });
             
@@ -633,5 +745,194 @@ public class GameBoardView {
         stage.setTitle("Milionerzy Świętokrzyskiego - Gra");
         stage.setResizable(false); // Blokujemy resize
         stage.show();
+    }
+    /**
+     * Oblicza środek pola o danym indeksie (0-39).
+     */
+    private Point2D getTileCenter(int index) {
+        index = index % 40;
+        if (index < 0) index += 40;
+        
+        double x = 0;
+        double y = 0;
+        
+        // Rozmiary
+        // BOARD_SIZE = 600
+        // CORNER = 75
+        // TILE_W = 50, TILE_H = 75
+        
+        if (index == 0) {
+            // START (Prawy Dolny Róg)
+            x = BOARD_SIZE - CORNER_SIZE / 2;
+            y = BOARD_SIZE - CORNER_SIZE / 2;
+        } else if (index < 10) {
+            // Dolna krawędź (idzie w lewo)
+            // index 1..9
+            // tile 1 jest przy starcie
+            // x = BOARD_SIZE - CORNER_SIZE - (index * TILE_WIDTH) + TILE_WIDTH/2
+            // Prościej: startujemy od (BOARD_SIZE - CORNER_SIZE) i odejmujemy szerokości
+            double rightEdgeOfTiles = BOARD_SIZE - CORNER_SIZE;
+            // index 1 -> rightEdge - 50 + 25 = rightEdge - 25
+            x = rightEdgeOfTiles - ((index - 1) * TILE_WIDTH) - TILE_WIDTH / 2.0;
+            y = BOARD_SIZE - TILE_HEIGHT / 2.0;
+        } else if (index == 10) {
+            // WIĘZIENIE (Lewy Dolny Róg)
+            x = CORNER_SIZE / 2;
+            y = BOARD_SIZE - CORNER_SIZE / 2;
+        } else if (index < 20) {
+            // Lewa krawędź (idzie w górę)
+            // index 11..19
+            int k = index - 10; // 1..9
+            x = TILE_HEIGHT / 2.0; // Bo obrócony, wysokość to szerokość na planszy
+            double bottomEdgeOfTiles = BOARD_SIZE - CORNER_SIZE;
+            y = bottomEdgeOfTiles - ((k - 1) * TILE_WIDTH) - TILE_WIDTH / 2.0;
+        } else if (index == 20) {
+            // PARKING (Lewy Górny Róg)
+            x = CORNER_SIZE / 2;
+            y = CORNER_SIZE / 2;
+        } else if (index < 30) {
+            // Górna krawędź (idzie w prawo)
+            // index 21..29
+            int k = index - 20; // 1..9
+            double leftEdgeOfTiles = CORNER_SIZE;
+            x = leftEdgeOfTiles + ((k - 1) * TILE_WIDTH) + TILE_WIDTH / 2.0;
+            y = TILE_HEIGHT / 2.0;
+        } else if (index == 30) {
+            // IDŹ DO WIĘZIENIA (Prawy Górny Róg)
+            x = BOARD_SIZE - CORNER_SIZE / 2;
+            y = CORNER_SIZE / 2;
+        } else {
+            // Prawa krawędź (idzie w dół)
+            // index 31..39
+            int k = index - 30; // 1..9
+            x = BOARD_SIZE - TILE_HEIGHT / 2.0;
+            double topEdgeOfTiles = CORNER_SIZE;
+            y = topEdgeOfTiles + ((k - 1) * TILE_WIDTH) + TILE_WIDTH / 2.0;
+        }
+        
+        return new Point2D(x, y);
+    }
+
+    public void animatePlayerMovement(Player player, int oldPos, int newPos) {
+        Circle pawn = playerPawns.get(player);
+        if (pawn == null) return;
+        
+        SequentialTransition seq = new SequentialTransition();
+        
+        // Ustalmy ile kroków trzeba zrobić
+        int steps = newPos - oldPos;
+        if (steps < 0) steps += 40; // wrap around
+        
+        // Znajdź indeks gracza w liście, żeby zachować offset
+        int pIndex = players.indexOf(player);
+        double offsetX = (pIndex % 2 == 0 ? -5 : 5);
+        double offsetY = (pIndex < 2 ? -5 : 5);
+
+        int current = oldPos;
+        for (int i = 0; i < steps; i++) {
+            current = (current + 1) % 40;
+            Point2D nextPoint = getTileCenter(current);
+            
+            TranslateTransition move = new TranslateTransition(Duration.millis(300), pawn);
+            move.setToX(nextPoint.getX() + offsetX);
+            move.setToY(nextPoint.getY() + offsetY);
+            seq.getChildren().add(move);
+        }
+        
+        seq.play();
+    }
+
+    private Board createBoardModel() {
+        List<Tile> tiles = new ArrayList<>();
+        
+        // Parsowanie BOARD_TILES
+        // Format: {Name, Type, [Color], [Price]}
+        // Indeksujemy zgodnie z ruchem wskazówek zegara od START (0)
+        
+        // BOARD_TILES w tablicy jest zdefiniowane sekcjami.
+        // Musimy to spłaszczyć do listy 40 pól.
+        
+        // 0: Start
+        tiles.add(new Tile(0, "START"));
+        
+        // 1-9: Dolna krawędź (BOARD_TILES[1]..[9])
+        for (int i = 1; i <= 9; i++) {
+             tiles.add(createTileFromData(i, BOARD_TILES[i]));
+        }
+        
+        // 10: Więzienie
+        tiles.add(new Tile(10, "WIĘZIENIE"));
+        
+        // 11-19: Lewa krawędź
+        for (int i = 11; i <= 19; i++) {
+             tiles.add(createTileFromData(i, BOARD_TILES[i]));
+        }
+        
+        // 20: Parking
+        tiles.add(new Tile(20, "DARMOWY PARKING"));
+        
+        // 21-29: Górna krawędź
+        for (int i = 21; i <= 29; i++) {
+             tiles.add(createTileFromData(i, BOARD_TILES[i]));
+        }
+        
+        // 30: Idź do więzienia
+        tiles.add(new Tile(30, "IDŹ DO WIĘZIENIA"));
+        
+        // 31-39: Prawa krawędź
+        for (int i = 31; i <= 39; i++) {
+             tiles.add(createTileFromData(i, BOARD_TILES[i]));
+        }
+        
+        return new Board(tiles);
+    }
+    
+    private Tile createTileFromData(int pos, String[] data) {
+        String name = data[0].replace("\n", " ");
+        String type = data[1];
+        
+        switch (type) {
+            case "property":
+                int price = Integer.parseInt(data[3]);
+                // Uproszczony czynsz 10% ceny
+                return new PropertyTile(pos, name, price, price / 10);
+            case "chance":
+                return new ChanceTile(pos, name); // Zakładam że taki konstruktor istnieje
+            case "chest":
+                return new CommunityChestTile(pos, name); // Zakładam że taki konstruktor istnieje
+            case "tax":
+                return new Tile(pos, name); // Powinno być TaxTile ale używam Tile dla uproszczenia
+            case "railroad":
+                return new PropertyTile(pos, name, 200, 25);
+            case "utility":
+                return new PropertyTile(pos, name, 150, 20); // Uproszczenie jako PropertyTile
+            default:
+                return new Tile(pos, name);
+        }
+    }
+
+    @Override
+    public void onGameEvent(GameEvent event) {
+        // Platform.runLater jest potrzebne bo zdarzenia mogą przychodzić z innego wątku (sieciowego lub logiki)
+        switch (event.getType()) {
+            case DICE_ROLLED -> {
+                int val = (int) event.getData();
+                 javafx.application.Platform.runLater(() -> animateDiceRoll(val));
+            }
+            case PLAYER_MOVED -> {
+                Player p = (Player) event.getSource();
+                int currentPos = p.getPosition();
+                // Player already has new position in backend logic
+                // But we need oldPos to animate from.
+                // We can calculate oldPos by subtracting steps stored in event data if available
+                int steps = (int) event.getData();
+                int tempOldPos = (currentPos - steps);
+                if (tempOldPos < 0) tempOldPos += 40;
+                final int oldPos = tempOldPos;
+                
+                javafx.application.Platform.runLater(() -> animatePlayerMovement(p, oldPos, currentPos));
+            }
+            default -> {}
+        }
     }
 }

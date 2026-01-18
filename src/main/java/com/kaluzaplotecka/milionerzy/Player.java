@@ -23,6 +23,15 @@ public class Player implements Serializable {
         this.jailTurns = 0;
     }
 
+    public String getId() {
+        return username;
+    }
+
+    public void setPosition(int position) {
+        this.position = position;
+    }
+
+
     public String getUsername() {
         return username;
     }

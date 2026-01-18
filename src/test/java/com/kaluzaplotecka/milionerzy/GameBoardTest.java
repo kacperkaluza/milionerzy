@@ -22,7 +22,7 @@ public class GameBoardTest extends ApplicationTest {
         players.add(new Player("TestPlayer1", 1500));
         players.add(new Player("TestPlayer2", 1500));
         
-        gameBoardView = new GameBoardView(stage, players);
+        gameBoardView = new GameBoardView(stage, players, null, "1");
         gameBoardView.show();
     }
 

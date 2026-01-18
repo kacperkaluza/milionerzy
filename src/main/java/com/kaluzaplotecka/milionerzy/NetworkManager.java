@@ -55,7 +55,11 @@ public class NetworkManager {
         mode = Mode.HOST;
         running = true;
         serverSocket = new ServerSocket(port);
-        serverExecutor = Executors.newCachedThreadPool();
+        serverExecutor = Executors.newCachedThreadPool(r -> {
+            Thread thread = new Thread(r);
+            thread.setDaemon(true);
+            return thread;
+        });
         
         // Wątek akceptujący połączenia
         serverExecutor.submit(() -> {
