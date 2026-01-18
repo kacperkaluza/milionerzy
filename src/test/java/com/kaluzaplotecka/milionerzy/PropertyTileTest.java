@@ -35,7 +35,7 @@ public class PropertyTileTest {
         int charged = prop.chargeRent(tenant);
         assertEquals(prop.calculateRent(), charged);
         // owner initially had 100, paid price when buying
-        assertEquals(100 - prop.price + charged, owner.getMoney());
+        assertEquals(100 - prop.getPrice() + charged, owner.getMoney());
         assertEquals(150 - charged, tenant.getMoney());
     }
 }

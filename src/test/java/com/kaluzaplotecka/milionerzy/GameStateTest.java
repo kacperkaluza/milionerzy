@@ -54,7 +54,7 @@ public class GameStateTest {
         assertEquals(b, state.getCurrentPlayer());
         state.nextTurn();
         assertEquals(a, state.getCurrentPlayer());
-        assertEquals(1, state.roundNumber);
+        assertEquals(1, state.getRoundNumber());
     }
 
     @Test
@@ -81,7 +81,7 @@ public class GameStateTest {
         // run only a few rounds; there is no mechanism on board to eliminate players
         Player winner = gs.runGameLoop(5);
         assertNull(winner, "No winner should be returned when maxRounds reached and multiple players remain");
-        assertEquals(2, gs.players.size(), "Both players should still be present");
+        assertEquals(2, gs.getPlayers().size(), "Both players should still be present");
     }
 
     @Test
@@ -107,7 +107,7 @@ public class GameStateTest {
         assertTrue(tenant.isBankrupt(), "Tenant should be bankrupt after paying rent larger than his money");
 
         // Bankruptcy should be handled and tenant removed from game
-        assertEquals(1, gs.players.size(), "Tenant should be removed from players list after bankruptcy");
+        assertEquals(1, gs.getPlayers().size(), "Tenant should be removed from players list after bankruptcy");
         assertEquals(owner, gs.getWinner(), "Owner should be the remaining player (winner)");
 
         // Owner should have received some money (at least some of the rent)
