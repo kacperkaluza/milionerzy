@@ -1,13 +1,15 @@
 package com.kaluzaplotecka.milionerzy.network;
 
 import java.io.Serializable;
+import java.util.Set;
+import java.util.UUID;
 
 /**
  * Wiadomość sieciowa przesyłana między graczami.
  * Serializowalna do przesyłania przez socket.
  */
 public class GameMessage implements Serializable {
-    private static final long serialVersionUID = 1L;
+    private static final long serialVersionUID = 2L;  // Incremented for new fields
     
     public enum MessageType {
         // Kontrola połączenia
@@ -15,6 +17,10 @@ public class GameMessage implements Serializable {
         DISCONNECT,         // gracz się rozłącza
         PING,               // sprawdzenie połączenia
         PONG,               // odpowiedź na ping
+        
+        // System ACK
+        ACK,                // potwierdzenie odebrania wiadomości
+        NACK,               // odrzucenie/błąd przetwarzania wiadomości
         
         // Synchronizacja stanu
         GAME_STATE_SYNC,    // pełna synchronizacja stanu gry
@@ -27,7 +33,10 @@ public class GameMessage implements Serializable {
         NEXT_TURN,          // gracz kończy turę
         BUY_PROPERTY,       // gracz kupuje nieruchomość
         DECLINE_PURCHASE,   // gracz rezygnuje z kupna
+        PROPERTY_OFFER,     // gracz stanął na nieruchomości do kupienia
         END_TURN,           // gracz kończy turę
+        MONEY_UPDATE,       // aktualizacja pieniędzy
+
         
         // Handel
         TRADE_OFFER,        // oferta wymiany
@@ -37,6 +46,7 @@ public class GameMessage implements Serializable {
         AUCTION_START,      // rozpoczęcie aukcji
         AUCTION_BID,        // licytacja
         AUCTION_PASS,       // rezygnacja z licytacji
+        AUCTION_ENDED,      // zakończenie aukcji
         
         // Czat
         CHAT,               // wiadomość czatu
@@ -51,14 +61,30 @@ public class GameMessage implements Serializable {
         ERROR               // komunikat błędu
     }
     
-    private final MessageType type;     // typ wiadomości
-    private final String senderId;      // ID gracza wysyłającego
-    private final String targetId;      // ID gracza docelowego (null = broadcast)
-    private final Object payload;       // dane wiadomości
-    private final long timestamp;       // czas wysłania
-    private boolean broadcast = false;  // czy rozgłosić do wszystkich
+    // Typy wiadomości wymagające potwierdzenia ACK
+    private static final Set<MessageType> ACK_REQUIRED_TYPES = Set.of(
+        MessageType.ROLL_DICE,
+        MessageType.BUY_PROPERTY,
+        MessageType.DECLINE_PURCHASE,
+        MessageType.AUCTION_BID,
+        MessageType.AUCTION_PASS,
+        MessageType.TRADE_OFFER,
+        MessageType.TRADE_RESPONSE,
+        MessageType.END_TURN
+    );
+    
+    private final String messageId;        // unikalny identyfikator wiadomości
+    private final MessageType type;        // typ wiadomości
+    private final String senderId;         // ID gracza wysyłającego
+    private final String targetId;         // ID gracza docelowego (null = broadcast)
+    private final Object payload;          // dane wiadomości
+    private final long timestamp;          // czas wysłania
+    private boolean broadcast = false;     // czy rozgłosić do wszystkich
+    private String ackForMessageId;        // dla ACK/NACK - ID potwierdzonej wiadomości
+    private String nackReason;             // powód odrzucenia (dla NACK)
     
     public GameMessage(MessageType type, String senderId, String targetId, Object payload) {
+        this.messageId = UUID.randomUUID().toString();
         this.type = type;
         this.senderId = senderId;
         this.targetId = targetId;
@@ -73,13 +99,62 @@ public class GameMessage implements Serializable {
     public GameMessage(MessageType type, String senderId) {
         this(type, senderId, null, null);
     }
+    
+    // === Factory methods dla ACK/NACK ===
+    
+    /**
+     * Tworzy wiadomość ACK potwierdzającą otrzymanie innej wiadomości.
+     */
+    public static GameMessage createAck(String originalMessageId, String senderId, String targetId) {
+        GameMessage ack = new GameMessage(MessageType.ACK, senderId, targetId, null);
+        ack.ackForMessageId = originalMessageId;
+        return ack;
+    }
+    
+    /**
+     * Tworzy wiadomość NACK odrzucającą wiadomość z podaniem powodu.
+     */
+    public static GameMessage createNack(String originalMessageId, String senderId, String targetId, String reason) {
+        GameMessage nack = new GameMessage(MessageType.NACK, senderId, targetId, null);
+        nack.ackForMessageId = originalMessageId;
+        nack.nackReason = reason;
+        return nack;
+    }
 
+    // === Gettery ===
+    
+    public String getMessageId() { return messageId; }
     public MessageType getType() { return type; }
     public String getSenderId() { return senderId; }
     public String getTargetId() { return targetId; }
     public Object getPayload() { return payload; }
-    public long getTimestamp() { return timestamp; } 
+    public long getTimestamp() { return timestamp; }
+    public String getAckForMessageId() { return ackForMessageId; }
+    public String getNackReason() { return nackReason; }
     
+    /**
+     * Sprawdza czy ten typ wiadomości wymaga potwierdzenia ACK.
+     */
+    public boolean requiresAck() {
+        return ACK_REQUIRED_TYPES.contains(type);
+    }
+    
+    /**
+     * Zwraca czytelną nazwę akcji (do wyświetlania w UI).
+     */
+    public String getActionName() {
+        return switch (type) {
+            case ROLL_DICE -> "Rzut kostką";
+            case BUY_PROPERTY -> "Zakup nieruchomości";
+            case DECLINE_PURCHASE -> "Odmowa zakupu";
+            case AUCTION_BID -> "Licytacja";
+            case AUCTION_PASS -> "Pas w aukcji";
+            case TRADE_OFFER -> "Oferta wymiany";
+            case TRADE_RESPONSE -> "Odpowiedź na wymianę";
+            case END_TURN -> "Zakończenie tury";
+            default -> type.name();
+        };
+    }
     
     public boolean isBroadcast() {
         return broadcast || targetId == null;
@@ -91,7 +166,7 @@ public class GameMessage implements Serializable {
     
     @Override
     public String toString() {
-        return String.format("GameMessage[%s from %s to %s]", 
-            type, senderId, targetId != null ? targetId : "ALL");
+        return String.format("GameMessage[%s id=%s from %s to %s]", 
+            type, messageId.substring(0, 8), senderId, targetId != null ? targetId : "ALL");
     }
 }

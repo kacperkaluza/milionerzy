@@ -272,6 +272,18 @@ public class GameBoardView implements GameEventListener {
                 } else if (msg.getType() == GameMessage.MessageType.MOVE) {
                     // Animation handling
                     handleMove(msg);
+                } else if (msg.getType() == GameMessage.MessageType.PROPERTY_OFFER) {
+                    // Klient otrzymuje informację o możliwości kupna nieruchomości
+                    if (!isHost) {
+                        String senderId = msg.getSenderId();
+                        // Sprawdź czy to my stanęliśmy na nieruchomości
+                        if (playerId.equals(senderId)) {
+                            Object payload = msg.getPayload();
+                            if (payload instanceof com.kaluzaplotecka.milionerzy.model.tiles.PropertyTile tile) {
+                                showPropertyPurchaseDialog(tile);
+                            }
+                        }
+                    }
                 } else {
                     // Delegate logic to GameState
                     gameState.processNetworkMessage(msg, isHost, networkManager);
@@ -279,7 +291,29 @@ public class GameBoardView implements GameEventListener {
             });
         });
     }
-
+    
+    /**
+     * Wyświetla dialog kupna/licytacji nieruchomości dla klienta.
+     */
+    private void showPropertyPurchaseDialog(com.kaluzaplotecka.milionerzy.model.tiles.PropertyTile tile) {
+        Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+        alert.setTitle("Kupno Nieruchomości");
+        alert.setHeaderText("Czy chcesz kupić " + tile.getCity() + "?");
+        alert.setContentText("Cena: " + tile.getPrice() + " zł");
+        
+        ButtonType buyButton = new ButtonType("Kup");
+        ButtonType passButton = new ButtonType("Licytuj");
+        
+        alert.getButtonTypes().setAll(buyButton, passButton);
+        
+        Optional<ButtonType> result = alert.showAndWait();
+        if (result.isPresent() && result.get() == buyButton) {
+            networkManager.send(new GameMessage(GameMessage.MessageType.BUY_PROPERTY, playerId));
+        } else {
+            // Pass -> Start Auction
+            networkManager.send(new GameMessage(GameMessage.MessageType.DECLINE_PURCHASE, playerId));
+        }
+    }
 
 
 

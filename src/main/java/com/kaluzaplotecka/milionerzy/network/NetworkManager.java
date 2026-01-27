@@ -7,6 +7,9 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
+
+import com.kaluzaplotecka.milionerzy.model.GameState;
 
 /**
  * Zarządza komunikacją sieciową między graczami.
@@ -35,6 +38,16 @@ public class NetworkManager {
     
     // Callback na zmiany połączenia
     private Consumer<String> connectionHandler;
+
+    // Provider stanu gry (dla hosta)
+    private Supplier<GameState> gameStateProvider;
+    
+    // System ACK
+    private final PendingMessageTracker pendingTracker;
+    private Consumer<GameMessage> sendingCallback;    // wywoływane przy wysyłaniu
+    private Consumer<GameMessage> ackCallback;        // wywoływane po ACK
+    private Consumer<GameMessage> nackCallback;       // wywoływane po NACK
+    private Consumer<GameMessage> timeoutCallback;    // wywoływane po timeout
     
     private volatile boolean running = false;
     
@@ -42,6 +55,19 @@ public class NetworkManager {
     
     public NetworkManager(String playerId) {
         this.playerId = playerId;
+        this.pendingTracker = new PendingMessageTracker();
+        
+        // Skonfiguruj callbacki trackera
+        pendingTracker.setResendCallback(this::resendMessage);
+        pendingTracker.setAckCallback(msg -> {
+            if (ackCallback != null) ackCallback.accept(msg);
+        });
+        pendingTracker.setNackCallback(msg -> {
+            if (nackCallback != null) nackCallback.accept(msg);
+        });
+        pendingTracker.setTimeoutCallback(msg -> {
+            if (timeoutCallback != null) timeoutCallback.accept(msg);
+        });
     }
     
     // === TRYB HOSTA (SERWERA) ===
@@ -111,6 +137,16 @@ public class NetworkManager {
             while (running && !clientSocket.isClosed()) {
                 try {
                     GameMessage msg = (GameMessage) clientIn.readObject();
+                    
+                    // Obsłuż ACK/NACK
+                    if (msg.getType() == GameMessage.MessageType.ACK) {
+                        pendingTracker.acknowledge(msg.getAckForMessageId());
+                        continue;
+                    } else if (msg.getType() == GameMessage.MessageType.NACK) {
+                        pendingTracker.reject(msg.getAckForMessageId(), msg.getNackReason());
+                        continue;
+                    }
+                    
                     if (messageHandler != null) {
                         messageHandler.accept(msg);
                     }
@@ -138,14 +174,22 @@ public class NetworkManager {
         connectToHost(host, DEFAULT_PORT, "Player");
     }
     
-    // === WYSYŁANIE WIADOMOŚCI ===
-    
     /**
      * Wysyła wiadomość. Host broadcastuje do wszystkich klientów,
      * klient wysyła do hosta.
      */
     public void send(GameMessage message) {
         if (mode == Mode.OFFLINE) return;
+        
+        // Powiadom o wysyłaniu
+        if (sendingCallback != null && message.requiresAck()) {
+            sendingCallback.accept(message);
+        }
+        
+        // Śledź wiadomości wymagające ACK (tylko klient śledzi)
+        if (mode == Mode.CLIENT && message.requiresAck()) {
+            pendingTracker.track(message);
+        }
         
         if (mode == Mode.HOST) {
             // Broadcast do wszystkich klientów
@@ -158,6 +202,21 @@ public class NetworkManager {
                 clientOut.flush();
             } catch (IOException e) {
                 System.err.println("Błąd wysyłania: " + e.getMessage());
+            }
+        }
+    }
+    
+    /**
+     * Ponownie wysyła wiadomość (przy timeout).
+     */
+    private void resendMessage(GameMessage message) {
+        System.out.println("Ponowne wysyłanie: " + message.getActionName());
+        if (mode == Mode.CLIENT) {
+            try {
+                clientOut.writeObject(message);
+                clientOut.flush();
+            } catch (IOException e) {
+                System.err.println("Błąd ponownego wysyłania: " + e.getMessage());
             }
         }
     }
@@ -201,7 +260,30 @@ public class NetworkManager {
         }
         
         mode = Mode.OFFLINE;
+        pendingTracker.shutdown();
         System.out.println("NetworkManager zatrzymany");
+    }
+    
+    // === WYSYŁANIE ACK/NACK (dla hosta) ===
+    
+    /**
+     * Wysyła ACK do gracza potwierdzając otrzymanie wiadomości.
+     */
+    public void sendAck(String originalMessageId, String toPlayerId) {
+        if (mode != Mode.HOST) return;
+        
+        GameMessage ack = GameMessage.createAck(originalMessageId, playerId, toPlayerId);
+        sendTo(toPlayerId, ack);
+    }
+    
+    /**
+     * Wysyła NACK do gracza odrzucając wiadomość.
+     */
+    public void sendNack(String originalMessageId, String toPlayerId, String reason) {
+        if (mode != Mode.HOST) return;
+        
+        GameMessage nack = GameMessage.createNack(originalMessageId, playerId, toPlayerId, reason);
+        sendTo(toPlayerId, nack);
     }
     
     // === GETTERY I SETTERY ===
@@ -217,6 +299,32 @@ public class NetworkManager {
     
     public void setConnectionHandler(Consumer<String> handler) {
         this.connectionHandler = handler;
+    }
+
+    public void setGameStateProvider(Supplier<GameState> provider) {
+        this.gameStateProvider = provider;
+    }
+    
+    // === Callbacki ACK ===
+    
+    public void setSendingCallback(Consumer<GameMessage> callback) {
+        this.sendingCallback = callback;
+    }
+    
+    public void setAckCallback(Consumer<GameMessage> callback) {
+        this.ackCallback = callback;
+    }
+    
+    public void setNackCallback(Consumer<GameMessage> callback) {
+        this.nackCallback = callback;
+    }
+    
+    public void setTimeoutCallback(Consumer<GameMessage> callback) {
+        this.timeoutCallback = callback;
+    }
+    
+    public PendingMessageTracker getPendingTracker() {
+        return pendingTracker;
     }
     
     // === KLASA WEWNĘTRZNA: OBSŁUGA KLIENTA (DLA HOSTA) ===
@@ -243,6 +351,19 @@ public class NetworkManager {
                     // Zapisz ID gracza przy pierwszym połączeniu
                     if (msg.getType() == GameMessage.MessageType.CONNECT) {
                         this.playerId = msg.getSenderId();
+                        
+                        // Jeśli mamy providera stanu (jesteśmy hostem), wyślij stan gry
+                        if (gameStateProvider != null) {
+                            GameState currentState = gameStateProvider.get();
+                            if (currentState != null) {
+                                send(new GameMessage(
+                                    GameMessage.MessageType.GAME_STATE_SYNC,
+                                    NetworkManager.this.playerId,
+                                    this.playerId, // Wyślij tylko do tego klienta
+                                    currentState
+                                ));
+                            }
+                        }
                     }
                     
                     // Przekaż do handlera hosta

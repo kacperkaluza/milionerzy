@@ -1,5 +1,7 @@
 package com.kaluzaplotecka.milionerzy.model;
 
+import com.kaluzaplotecka.milionerzy.network.GameMessage;
+
 import java.io.Serializable;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -101,6 +103,12 @@ public class GameState implements Serializable {
 
         if (passedStart){
             p.addMoney(PASS_START_REWARD);
+            fireEvent(new GameEvent(
+                GameEvent.Type.MONEY_CHANGED,
+                p,
+                PASS_START_REWARD,
+                p.getUsername() + " przeszedł Start (+200)"
+            ));
         }
 
         Tile t = board.getTile(p.getPosition());
@@ -115,6 +123,12 @@ public class GameState implements Serializable {
         if (players.isEmpty()) return;
         currentPlayerIndex = (currentPlayerIndex + 1) % players.size();
         if (currentPlayerIndex == 0) roundNumber++;
+        
+        fireEvent(new GameEvent(
+            GameEvent.Type.TURN_STARTED,
+            getCurrentPlayer(),
+            "Tura gracza " + getCurrentPlayer().getUsername()
+        ));
     }
 
     public void handleBankruptcy(Player p){
@@ -225,7 +239,7 @@ public class GameState implements Serializable {
                     prop.buy(p);
                 }
             } else if (prop.getOwner() != p){
-                prop.chargeRent(p);
+                prop.chargeRent(this, p);
                 if (p.isBankrupt()) handleBankruptcy(p);
             }
         } else if (t != null){
@@ -405,7 +419,7 @@ public class GameState implements Serializable {
         if (currentAuction != null && currentAuction.isActive()) return false;
         if (players.size() < 2) return false;
         
-        currentAuction = new Auction(property, players);
+        currentAuction = new Auction(property, players, property.getPrice());
         fireEvent(new GameEvent(
             GameEvent.Type.AUCTION_STARTED,
             null,
@@ -500,6 +514,253 @@ public class GameState implements Serializable {
     
     public boolean hasActiveAuction() {
         return currentAuction != null && currentAuction.isActive();
+    }
+    
+    // === OBSŁUGA SIECI ===
+    
+    /**
+     * Przetwarza wiadomość sieciową i aktualizuje stan gry.
+     * Używane zarówno przez klienta (aktualizacja stanu) jak i hosta (akcje graczy).
+     */
+    public void processNetworkMessage(GameMessage msg, boolean isHost) {
+        processNetworkMessage(msg, isHost, null);
+    }
+    
+    /**
+     * Przetwarza wiadomość sieciową z obsługą ACK.
+     * @param msg wiadomość do przetworzenia
+     * @param isHost czy przetwarzane przez hosta
+     * @param networkManager manager sieci do wysyłania ACK (może być null)
+     */
+    public void processNetworkMessage(GameMessage msg, boolean isHost, 
+                                       com.kaluzaplotecka.milionerzy.network.NetworkManager networkManager) {
+        if (msg == null) return;
+        
+        boolean processed = false;  // Flaga do śledzenia czy wiadomość została przetworzona
+        
+        switch (msg.getType()) {
+            case ROLL_DICE -> {
+                if (isHost) { // Tylko host może wykonać logikę gry na żądanie gracza
+                    String senderId = msg.getSenderId();
+                    Player p = getCurrentPlayer();
+                    if (p != null && p.getId().equals(senderId)) {
+                        moveCurrentPlayer();
+                        processed = true;
+                    }
+                }
+            }
+            case BUY_PROPERTY -> {
+                if (isHost) {
+                   String senderId = msg.getSenderId();
+                   Player p = players.stream().filter(pl -> pl.getId().equals(senderId)).findFirst().orElse(null);
+                   // Verify if sender is current player
+                   if (p != null && p == getCurrentPlayer()) {
+                        boolean success = buyCurrentProperty();
+                        if (success) {
+                            fireEvent(new GameEvent(
+                                GameEvent.Type.PROPERTY_BOUGHT,
+                                p,
+                                getCurrentTile(),
+                                p.getUsername() + " kupił " + ((PropertyTile)getCurrentTile()).getCity()
+                            ));
+                        }
+                        processed = true;
+                   }
+                }
+            }
+            case DECLINE_PURCHASE -> {
+                if (isHost) {
+                   String senderId = msg.getSenderId();
+                   Player p = players.stream().filter(pl -> pl.getId().equals(senderId)).findFirst().orElse(null);
+                   if (p != null && p == getCurrentPlayer()) {
+                       Tile t = getCurrentTile();
+                       if (t instanceof PropertyTile pt && !pt.isOwned()) {
+                           startAuction(pt);
+                       }
+                       processed = true;
+                   }
+                }
+            }
+            // Aukcje - Klient odbiera aktualizacje
+            case AUCTION_START -> {
+                if (!isHost && msg.getPayload() instanceof Auction auction) {
+                    this.currentAuction = auction;
+                    // Fire event locally to update UI
+                     fireEvent(new GameEvent(
+                        GameEvent.Type.AUCTION_STARTED,
+                        null,
+                        currentAuction,
+                        "Rozpoczęto aukcję: " + currentAuction.getProperty().getCity()
+                    ));
+                }
+            }
+            case AUCTION_BID -> {
+                if (isHost) {
+                    // Host odbiera ofertę od klienta
+                    String senderId = msg.getSenderId();
+                    Object payload = msg.getPayload();
+                    
+                    Player bidder = players.stream()
+                        .filter(p -> p.getId().equals(senderId))
+                        .findFirst()
+                        .orElse(null);
+                        
+                    if (bidder != null) {
+                        if (payload instanceof Integer amount) {
+                            placeBid(bidder, amount);
+                            processed = true;
+                        } else if (payload instanceof String s && "pass".equals(s)) { // Can be "pass" via message logic? OR separate AUCTION_PASS type
+                            // Actually we mapped pass to AUCTION_PASS in GameMessage, so check logic.
+                            // But maybe we receive raw AUCTION_BID with string "pass" from older clients? Safe to handle.
+                            processed = true;
+                        }
+                    }
+                } else {
+                    // Klient odbiera aktualizację bidding
+                    // Payload powinien zawierać zaktualizowaną aukcję lub dane o bidzie.
+                    // Ale NetworkGameEventListener wysyła to co było w evencie.
+                    // Event AUCTION_BID ma payload: kwota (int) LUB "pass" (String).
+                    // Ale to nie aktualizuje stanu lokalnego `currentAuction`.
+                    // Klient musi zaktualizować swój obiekt Auction.
+                    // Najlepiej gdyby Host wysyłał zaktualizowany obiekt Auction przy każdej zmianie.
+                    // Ale to dużo danych.
+                    // Spróbujmy zaktualizować lokalny obiekt na podstawie danych.
+                    if (currentAuction != null) {
+                       String senderId = msg.getSenderId();
+                       Object payload = msg.getPayload();
+                       Player bidder = players.stream()
+                            .filter(p -> p.getId().equals(senderId))
+                            .findFirst()
+                            .orElse(null);
+                            
+                       if (bidder != null && payload instanceof Integer amount) {
+                           // Force update local state visually (logic validation skipped on client)
+                           currentAuction.placeBid(bidder, amount);
+                           
+                           fireEvent(new GameEvent(
+                                GameEvent.Type.AUCTION_BID,
+                                bidder,
+                                amount,
+                                bidder.getUsername() + " licytuje: " + amount
+                           ));
+                       }
+                    }
+                }
+            }
+            case AUCTION_PASS -> {
+                if (isHost) {
+                     String senderId = msg.getSenderId();
+                     Player bidder = players.stream()
+                        .filter(p -> p.getId().equals(senderId))
+                        .findFirst()
+                        .orElse(null);
+                     if (bidder != null) {
+                         passAuction(bidder);
+                         processed = true;
+                     }
+                } else {
+                    // Klient odbiera pass
+                    if (currentAuction != null) {
+                        String senderId = msg.getSenderId();
+                        Player bidder = players.stream()
+                            .filter(p -> p.getId().equals(senderId))
+                            .findFirst()
+                            .orElse(null);
+                        
+                        if (bidder != null) {
+                            currentAuction.pass(bidder);
+                             fireEvent(new GameEvent(
+                                GameEvent.Type.AUCTION_BID,
+                                bidder,
+                                "pass",
+                                bidder.getUsername() + " pasuje"
+                           ));
+                        }
+                    }
+                }
+            }
+            case AUCTION_ENDED -> {
+                if (!isHost) { // Klient kończy aukcję
+                     Object payload = msg.getPayload();
+                     if (payload instanceof Auction finalAuction) {
+                         // Update final state properties (winner etc)
+                         // Wait, property ownership needs to be updated too on client!
+                         // Sync property owner?
+                         this.currentAuction = finalAuction;
+                         
+                         // Manually update property ownership on client
+                         if (finalAuction.getHighestBidder() != null && finalAuction.getProperty() != null) {
+                             // Find local property tile
+                             Tile t = board.getTile(finalAuction.getProperty().getPosition());
+                             if (t instanceof PropertyTile pt) {
+                                 // Find local player object
+                                 Player localWinner = players.stream()
+                                     .filter(p -> p.getId().equals(finalAuction.getHighestBidder().getId()))
+                                     .findFirst().orElse(null);
+                                 if (localWinner != null) {
+                                     pt.setOwner(localWinner);
+                                     localWinner.addProperty(pt);
+                                     localWinner.deductMoney(finalAuction.getHighestBid());
+                                 }
+                             }
+                         }
+                     }
+                     
+                     // Helper to fire end event
+                     Player winner = currentAuction != null ? currentAuction.getHighestBidder() : null;
+                     
+                     fireEvent(new GameEvent(
+                        GameEvent.Type.AUCTION_ENDED,
+                        winner,
+                        currentAuction,
+                        "Aukcja zakończona"
+                    ));
+                     this.currentAuction = null;
+                }
+            }
+
+            case END_TURN -> {
+                // Gracz sygnalizuje koniec tury
+                if (isHost) {
+                    String senderId = msg.getSenderId();
+                    Player p = getCurrentPlayer();
+                    // Tylko aktualny gracz może zakończyć turę
+                    if (p != null && p.getId().equals(senderId)) {
+                        nextTurn();
+                        processed = true;
+                    }
+                }
+            }
+            case NEXT_TURN -> {
+                // Klient otrzymuje informację o zmianie tury
+                if (!isHost) {
+                     String newCurrentPlayerId = msg.getSenderId();
+                     // Aktualizujemy indeks gracza
+                     for (int i = 0; i < players.size(); i++) {
+                         if (players.get(i).getId().equals(newCurrentPlayerId)) {
+                             currentPlayerIndex = i;
+                             break;
+                         }
+                     }
+                     
+                     // Informujemy UI
+                     fireEvent(new GameEvent(
+                        GameEvent.Type.TURN_STARTED,
+                        getCurrentPlayer(),
+                        "Tura gracza " + getCurrentPlayer().getUsername()
+                    ));
+                }
+            }
+
+            default -> {
+                 // Handle or ignore other message types
+            }
+        }
+        
+        // Wyślij ACK jeśli wiadomość została przetworzona i wymaga potwierdzenia
+        if (isHost && processed && msg.requiresAck() && networkManager != null) {
+            networkManager.sendAck(msg.getMessageId(), msg.getSenderId());
+        }
     }
     
     public List<Player> getPlayers() {
