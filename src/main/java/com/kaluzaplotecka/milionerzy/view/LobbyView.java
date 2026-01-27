@@ -718,7 +718,7 @@ public class LobbyView {
         // Konwersja listy graczy
         List<Player> gamePlayers = new ArrayList<>();
         for (PlayerInfo info : players) {
-            gamePlayers.add(new Player(info.name, 1500));
+            gamePlayers.add(new Player(info.id, info.name, 1500));
         }
 
         // Przejście do widoku gry

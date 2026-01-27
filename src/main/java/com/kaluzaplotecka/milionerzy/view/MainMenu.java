@@ -348,10 +348,10 @@ public class MainMenu extends Application {
         System.out.println("Gra Lokalna...");
 
         List<Player> localPlayers = new ArrayList<>();
-        localPlayers.add(new Player("Gracz 1", 1500));
-        localPlayers.add(new Player("Gracz 2", 1200));
-        localPlayers.add(new Player("Gracz 3", 1000));
-        localPlayers.add(new Player("Gracz 4", 800));
+        localPlayers.add(new Player("local-1", "Gracz 1", 1500));
+        localPlayers.add(new Player("local-2", "Gracz 2", 1200));
+        localPlayers.add(new Player("local-3", "Gracz 3", 1000));
+        localPlayers.add(new Player("local-4", "Gracz 4", 800));
 
         try {
             GameBoardView gameBoard = new GameBoardView(primaryStage, localPlayers, null, localPlayers.get(0).getId());

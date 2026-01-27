@@ -21,6 +21,9 @@ import javafx.util.Duration;
 
 import java.util.List;
 import java.util.Random;
+import javafx.scene.control.Alert;
+import javafx.scene.control.ButtonType;
+import java.util.Optional;
 
 import com.kaluzaplotecka.milionerzy.events.GameEvent;
 import com.kaluzaplotecka.milionerzy.events.GameEventListener;
@@ -32,8 +35,9 @@ import com.kaluzaplotecka.milionerzy.model.tiles.CommunityChestTile;
 import com.kaluzaplotecka.milionerzy.model.tiles.PropertyTile;
 import com.kaluzaplotecka.milionerzy.model.tiles.Tile;
 import com.kaluzaplotecka.milionerzy.network.GameMessage;
+import com.kaluzaplotecka.milionerzy.network.NetworkGameEventListener;
 import com.kaluzaplotecka.milionerzy.network.NetworkManager;
-
+import javafx.application.Platform;
 import javafx.animation.SequentialTransition;
 import javafx.animation.TranslateTransition;
 import javafx.geometry.Point2D;
@@ -55,6 +59,8 @@ public class GameBoardView implements GameEventListener {
     private GameState gameState;
     private NetworkManager networkManager;
     private String playerId;
+    private AuctionView auctionView;
+    private NetworkStatusBox networkStatusBox;
     
     // Nazwy pól świętokrzyskich
     private static final String[][] BOARD_TILES = {
@@ -123,6 +129,40 @@ public class GameBoardView implements GameEventListener {
         this.diceStacks = new StackPane[2];
         this.playerPanels = new VBox[4];
         this.playerPawns = new HashMap<>(); // Initialize map
+        
+        this.auctionView = new AuctionView();
+        
+        // Auction actions
+        this.auctionView.setOnBid(amount -> {
+            if (networkManager != null && networkManager.getMode() == NetworkManager.Mode.CLIENT) {
+                // Send bid
+                networkManager.send(new GameMessage(GameMessage.MessageType.AUCTION_BID, playerId, amount));
+            } else {
+                // Local/Host
+                // We need to find 'myself'.
+                Player me = players.stream().filter(pl -> pl.getId().equals(playerId)).findFirst().orElse(null);
+                if (me != null) {
+                    gameState.placeBid(me, amount);
+                }
+            }
+        });
+        
+        this.auctionView.setOnPass(() -> {
+             if (networkManager != null && networkManager.getMode() == NetworkManager.Mode.CLIENT) {
+                networkManager.send(new GameMessage(GameMessage.MessageType.AUCTION_BID, playerId, "pass")); // NetworkGameEventListener handles "pass" string logic if mapped
+                // actually wait, NetworkGameEventListener handles GameEvent -> Message. 
+                // Here we are sending Message directly. 
+                // MessageType.AUCTION_PASS exists in Enum? 
+                // Let's check GameMessage. 
+                // Yes: AUCTION_PASS exists. 
+                networkManager.send(new GameMessage(GameMessage.MessageType.AUCTION_PASS, playerId));
+            } else {
+                Player me = players.stream().filter(pl -> pl.getId().equals(playerId)).findFirst().orElse(null);
+                if (me != null) {
+                    gameState.passAuction(me);
+                }
+            }
+        });
 
         Board board = createBoardModel();
         this.gameState = new GameState(board, players);
@@ -130,29 +170,183 @@ public class GameBoardView implements GameEventListener {
 
         if (this.networkManager != null) {
             setupNetworkListener();
+            setupAckCallbacks();  // Nowe: callbacki dla statusu ACK
+            
+            // Set provider so new clients can get the state
+            this.networkManager.setGameStateProvider(() -> this.gameState);
+            
+            // IF HOST: Broadcast events
+            if (this.networkManager.getMode() == NetworkManager.Mode.HOST) {
+                this.gameState.addEventListener(new NetworkGameEventListener(this.networkManager));
+                
+                // Broadcast initial state to ensure everyone is in sync with decks etc.
+                // But wait, clients request sync on Connect. 
+                // However, we can also force sync if needed.
+            }
         }
+        
+        // Inicjalizacja NetworkStatusBox
+        this.networkStatusBox = new NetworkStatusBox();
     }
     
+    /**
+     * Konfiguruje callbacki dla systemu ACK aby aktualizować UI.
+     */
+    private void setupAckCallbacks() {
+        if (networkManager == null) return;
+        
+        // Callback przy wysyłaniu wiadomości
+        networkManager.setSendingCallback(msg -> 
+            Platform.runLater(() -> networkStatusBox.showSending(msg.getActionName()))
+        );
+        
+        // Callback po otrzymaniu ACK
+        networkManager.setAckCallback(msg -> 
+            Platform.runLater(() -> networkStatusBox.showConfirmed(msg.getActionName()))
+        );
+        
+        // Callback po otrzymaniu NACK
+        networkManager.setNackCallback(msg -> 
+            Platform.runLater(() -> networkStatusBox.showError(msg.getActionName(), "Odrzucono"))
+        );
+        
+        // Callback po timeout
+        networkManager.setTimeoutCallback(msg -> 
+            Platform.runLater(() -> networkStatusBox.showTimeout(msg.getActionName()))
+        );
+    }
+
     private void setupNetworkListener() {
         networkManager.setMessageHandler(msg -> {
-            javafx.application.Platform.runLater(() -> {
-                switch (msg.getType()) {
-                    case MOVE -> handleMove(msg);
-                    case CONNECT, DISCONNECT, PING, PONG, GAME_STATE_SYNC, PLAYER_LIST, 
-                         ROLL_DICE, DICE_RESULT, NEXT_TURN, BUY_PROPERTY, DECLINE_PURCHASE, 
-                         END_TURN, TRADE_OFFER, TRADE_RESPONSE, AUCTION_START, AUCTION_BID, 
-                         AUCTION_PASS, CHAT, START_GAME, GAME_START, PAUSE_GAME, RESUME_GAME, 
-                         ERROR -> {
-                        // TODO: Handle these messages
+            Platform.runLater(() -> {
+                // Initial sync case still handled here or inside processNetworkMessage?
+                // processNetworkMessage logic in GameState does NOT handle GAME_STATE_SYNC fully
+                // because it involves clearing players list in View. 
+                // However, logic for events like ROLL_DICE, AUCTION etc is there.
+                
+                boolean isHost = networkManager.getMode() == NetworkManager.Mode.HOST;
+                
+                if (msg.getType() == GameMessage.MessageType.GAME_STATE_SYNC) {
+                    if (msg.getPayload() instanceof GameState newState) {
+                        this.gameState = newState;
+                        this.players.clear();
+                        this.players.addAll(this.gameState.getPlayers());
+                        
+                        // Re-bind listener to new state
+                        this.gameState.addEventListener(this);
+                        
+                        // Refresh UI
+                        initializePawns();
+                        refreshBoard(); // Call refreshBoard to update player panels and positions
+                        updateRollButtonState();
                     }
+                } else if (msg.getType() == GameMessage.MessageType.DICE_RESULT) {
+                    // Animation handling
+                    if (msg.getPayload() instanceof Integer val) {
+                        animateDiceRoll(val);
+                    }
+                } else if (msg.getType() == GameMessage.MessageType.MONEY_UPDATE) {
+                    String senderId = msg.getSenderId();
+                    if (msg.getPayload() instanceof Integer newMoney) {
+                         // Find player and update directly
+                         Player p = players.stream().filter(pl -> pl.getId().equals(senderId)).findFirst().orElse(null);
+                         if (p != null) {
+                             // We update local model for consistency
+                             // But wait, p.setMoney() doesn't exist? Player has money field but no setter?
+                             // Player.java: private int money; ... addMoney/deductMoney.
+                             // We need setMoney or calculate diff.
+                             // Add setMoney to Player? Or just use diff.
+                             // If we send absolute value, we need to set absolute value.
+                             
+                             // Let's assume we add setMoney to Player or calculate diff.
+                             // Actually, let's use reflection or add method. Easier to add method.
+                             // Or... we calculate diff: int diff = newMoney - p.getMoney(); p.addMoney(diff);
+                             
+                             int current = p.getMoney();
+                             int diff = newMoney - current;
+                             p.addMoney(diff); 
+                             
+                             refreshBoard();
+                         }
+                    }
+                } else if (msg.getType() == GameMessage.MessageType.MOVE) {
+                    // Animation handling
+                    handleMove(msg);
+                } else {
+                    // Delegate logic to GameState
+                    gameState.processNetworkMessage(msg, isHost, networkManager);
                 }
             });
         });
     }
+
+
+
+
+    private void refreshBoard() {
+        // Update player positions and info
+        for (Player p : gameState.getPlayers()) {
+            // Update Visual Position
+            Circle pawn = playerPawns.get(p); // Changed to use Player object as key
+            if (pawn != null) {
+                // Determine target coordinates directly from position
+                Point2D target = getTileCenter(p.getPosition());
+                
+                // Determine offset similar to initialization
+                int pIndex = gameState.getPlayers().indexOf(p);
+                double offsetX = (pIndex % 2 == 0 ? -5 : 5);
+                double offsetY = (pIndex < 2 ? -5 : 5);
+                
+                // Snap to position (no animation for sync to avoid glitches)
+                pawn.setTranslateX(target.getX() + offsetX);
+                pawn.setTranslateY(target.getY() + offsetY);
+            }
+            
+            // Update Side Panels (Money, etc.) - requires finding the panel for the player
+            // Assuming playerPanels are indexed 0-3 corresponding to initial player list.
+            // But players order might shift or we need to match by username.
+            // For now, let's just assume the order in playerPanels corresponds to players list if fixed.
+            // If the players list can change (e.g. bankruptcy), this might be tricky.
+            // Let's rely on finding panel by index for now, assuming static seat assignment.
+             int index = players.stream()
+                           .map(Player::getUsername)
+                           .toList()
+                           .indexOf(p.getUsername());
+             
+             if (index >= 0 && index < playerPanels.length && playerPanels[index] != null) {
+                 updatePlayerPanel(playerPanels[index], p);
+             }
+        }
+    }
+    
+    private void updatePlayerPanel(VBox panel, Player p) {
+        // We need to access children of VBox to update labels.
+        // Structure from createPlayerPanel:
+        // 0: AvatarPane (StackPane)
+        // 1: NameLabel (Label)
+        // 2: MoneyBox (HBox) -> Children: [MoneyLabel, CurrencyLabel]
+        // 3: PropertiesLabel (Label)
+        
+        if (panel.getChildren().size() >= 4) {
+            // Update Money
+            if (panel.getChildren().get(2) instanceof HBox moneyBox) {
+                if (!moneyBox.getChildren().isEmpty() && moneyBox.getChildren().get(0) instanceof Label moneyLabel) {
+                     moneyLabel.setText(String.format("%,d", p.getMoney()));
+                }
+            }
+            // Update Properties count
+             if (panel.getChildren().get(3) instanceof Label propsLabel) {
+                 propsLabel.setText("🏠 " + p.getOwnedProperties().size() + " nieruchomości");
+            }
+        }
+    }
     
     private void handleMove(GameMessage msg) {
         String senderId = msg.getSenderId();
-        if (senderId.equals(this.playerId)) {
+        // This check is for client-side to ignore its own messages if it's also a host.
+        // For pure client, it will process all messages from host.
+        // For host, it will ignore its own messages.
+        if (networkManager.getMode() == NetworkManager.Mode.HOST && senderId.equals(this.playerId)) {
             return;
         }
 
@@ -219,10 +413,24 @@ public class GameBoardView implements GameEventListener {
         // StackPane na planszę + kostki
         StackPane centerPane = new StackPane();
         centerPane.getChildren().addAll(boardPane, diceArea);
+        if (auctionView != null) {
+             centerPane.getChildren().add(auctionView); // Overlay on top
+             // Ensure it ignores clicks when hidden? setVisible handles that.
+        }
         
         root.getChildren().addAll(leftPlayers, centerPane, rightPlayers);
         
-        Scene scene = new Scene(root, 1100, 750);
+        // Wrapper z NetworkStatusBox w prawym górnym rogu
+        StackPane rootWrapper = new StackPane();
+        rootWrapper.getChildren().add(root);
+        
+        if (networkStatusBox != null) {
+            StackPane.setAlignment(networkStatusBox, Pos.TOP_RIGHT);
+            StackPane.setMargin(networkStatusBox, new Insets(15));
+            rootWrapper.getChildren().add(networkStatusBox);
+        }
+        
+        Scene scene = new Scene(rootWrapper, 1100, 750);
         return scene;
     }
     
@@ -264,7 +472,7 @@ public class GameBoardView implements GameEventListener {
         for (int i = 0; i < 9; i++) {
             double x = BOARD_SIZE - CORNER_SIZE - (i + 1) * TILE_WIDTH;
             double y = BOARD_SIZE - TILE_HEIGHT;
-            String[] tileData = BOARD_TILES[9 - i];
+            String[] tileData = BOARD_TILES[i + 1];
             boardContainer.getChildren().add(createTile(x, y, TILE_WIDTH, TILE_HEIGHT, tileData, false));
         }
         
@@ -332,7 +540,17 @@ public class GameBoardView implements GameEventListener {
         playerLayer.setPickOnBounds(false); // Pozwalamy klikać "przez" warstwę pionków
         playerLayer.setPrefSize(BOARD_SIZE, BOARD_SIZE);
         
-        // Inicjalizacja pionków
+        boardContainer.getChildren().add(playerLayer);
+
+        initializePawns(); // Call initializePawns here
+        
+        return wrapper;
+    }
+
+    private void initializePawns() {
+        playerLayer.getChildren().clear();
+        playerPawns.clear();
+        
         for (int i = 0; i < players.size(); i++) {
             Player p = players.get(i);
             String colorHex = switch (i % 4) {
@@ -348,8 +566,8 @@ public class GameBoardView implements GameEventListener {
             pawn.setStroke(Color.BLACK);
             pawn.setStrokeWidth(1);
             
-            // Ustawienie na start (pole 0)
-            Point2D startPos = getTileCenter(0);
+            // Ustawienie na aktualną pozycję
+            Point2D startPos = getTileCenter(p.getPosition());
             
             // Mały offset żeby pionki na siebie nie wchodziły
             double offsetX = (i % 2 == 0 ? -5 : 5);
@@ -358,13 +576,9 @@ public class GameBoardView implements GameEventListener {
             pawn.setTranslateX(startPos.getX() + offsetX);
             pawn.setTranslateY(startPos.getY() + offsetY);
             
-            playerPawns.put(p, pawn);
+            playerPawns.put(p, pawn); // Changed to use Player object as key
             playerLayer.getChildren().add(pawn);
         }
-        
-        boardContainer.getChildren().add(playerLayer);
-
-        return wrapper;
     }
     
     private StackPane createTile(double x, double y, double width, double height, String[] tileData, boolean vertical) {
@@ -626,6 +840,8 @@ public class GameBoardView implements GameEventListener {
         
         rollButton.setOnAction(e -> rollDice());
         
+        updateRollButtonState();
+        
         diceArea.getChildren().addAll(diceBox, rollButton);
         return diceArea;
     }
@@ -673,9 +889,13 @@ public class GameBoardView implements GameEventListener {
             rollButton.setDisable(true);
         }
         
-        // Wywołujemy logikę gry - to spowoduje wyemitowanie zdarzeń DICE_ROLLED i PLAYER_MOVED
-        // UI zaktualizuje się w odpowiedzi na te zdarzenia
-        gameState.moveCurrentPlayer();
+        if (networkManager != null && networkManager.getMode() == NetworkManager.Mode.CLIENT) {
+            // Client requests roll
+            networkManager.send(new GameMessage(GameMessage.MessageType.ROLL_DICE, playerId));
+        } else {
+            // Host or Local executes directly
+            gameState.moveCurrentPlayer();
+        }
     }
     
     private void animateDiceRoll(int sum) {
@@ -691,9 +911,7 @@ public class GameBoardView implements GameEventListener {
             // Re-enable button after the last dice animation finishes
             if (i == diceStacks.length - 1) {
                 rotate.setOnFinished(e -> {
-                    if (rollButton != null) {
-                        rollButton.setDisable(false);
-                    }
+                    updateRollButtonState();
                 });
             }
             
@@ -834,7 +1052,10 @@ public class GameBoardView implements GameEventListener {
 
     public void animatePlayerMovement(Player player, int oldPos, int newPos) {
         Circle pawn = playerPawns.get(player);
-        if (pawn == null) return;
+        if (pawn == null) {
+            System.err.println("Pawn not found for player: " + player.getId());
+            return;
+        }
         
         SequentialTransition seq = new SequentialTransition();
         
@@ -951,7 +1172,114 @@ public class GameBoardView implements GameEventListener {
                 
                 javafx.application.Platform.runLater(() -> animatePlayerMovement(p, oldPos, currentPos));
             }
+            case AUCTION_STARTED -> {
+                if (event.getData() instanceof com.kaluzaplotecka.milionerzy.model.Auction auction) {
+                     javafx.application.Platform.runLater(() -> auctionView.show(auction, playerId));
+                }
+            }
+            case AUCTION_BID -> {
+                // The logical State (Auction object) should already be updated by processNetworkMessage -> placeBid/pass
+                // So we just need to refresh the view
+                if (gameState.getCurrentAuction() != null) {
+                     javafx.application.Platform.runLater(() -> auctionView.updateAuction(gameState.getCurrentAuction()));
+                }
+            }
+            case AUCTION_ENDED -> {
+                 javafx.application.Platform.runLater(() -> {
+                     refreshBoard();
+                     // Maybe show winner specific message?
+                     // Verify winner from event data?
+                     // For now just hide after delay
+                     new Timeline(new KeyFrame(
+                        Duration.seconds(2),
+                        ae -> auctionView.hide()
+                    )).play();
+                 });
+            }
+
+            case PROPERTY_LANDED_NOT_OWNED -> {
+                Player p = (Player) event.getSource();
+                PropertyTile tile = (PropertyTile) event.getData();
+                 // Show dialog only if it is THIS client
+                javafx.application.Platform.runLater(() -> {
+                    if (p.getId().equals(playerId)) {
+                        Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+                        alert.setTitle("Kupno Nieruchomości");
+                        alert.setHeaderText("Czy chcesz kupić " + tile.getCity() + "?");
+                        alert.setContentText("Cena: " + tile.getPrice() + " zł");
+                        
+                        ButtonType buyButton = new ButtonType("Kup");
+                        ButtonType passButton = new ButtonType("Licytuj");
+                        
+                        alert.getButtonTypes().setAll(buyButton, passButton);
+                        
+                        Optional<ButtonType> result = alert.showAndWait();
+                        if (result.isPresent() && result.get() == buyButton) {
+                            if (networkManager != null && networkManager.getMode() == NetworkManager.Mode.CLIENT) {
+                                networkManager.send(new GameMessage(GameMessage.MessageType.BUY_PROPERTY, playerId));
+                            } else {
+                                // Host/Local
+                                if (gameState.buyCurrentProperty()) {
+                                    gameState.fireEvent(new GameEvent(GameEvent.Type.PROPERTY_BOUGHT, p, tile, p.getUsername() + " kupił " + tile.getCity()));
+                                }
+                            }
+                        } else {
+                             // Pass -> Start Auction
+                             if (networkManager != null && networkManager.getMode() == NetworkManager.Mode.CLIENT) {
+                                  networkManager.send(new GameMessage(GameMessage.MessageType.DECLINE_PURCHASE, playerId));
+                             } else {
+                                  gameState.startAuction(tile);
+                             }
+                        }
+                    } 
+                });
+            }
+            case PROPERTY_BOUGHT -> {
+                 javafx.application.Platform.runLater(() -> {
+                     refreshBoard();
+                 });
+            }
             default -> {}
+            
+            case MONEY_CHANGED, RENT_PAID, TRADE_ACCEPTED -> {
+                 javafx.application.Platform.runLater(() -> {
+                     refreshBoard();
+                 });
+            }
+        }
+        
+        if (event.getType() == GameEvent.Type.TURN_STARTED) {
+             javafx.application.Platform.runLater(this::updateRollButtonState);
+        }
+    }
+
+    private void updateRollButtonState() {
+        if (rollButton == null || gameState == null) return;
+        
+        boolean isMyTurn = false;
+        Player current = gameState.getCurrentPlayer();
+        
+        if (networkManager != null && networkManager.getMode() == NetworkManager.Mode.CLIENT) {
+             if (current != null && current.getId().equals(playerId)) {
+                 isMyTurn = true;
+             }
+        } else if (networkManager != null && networkManager.getMode() == NetworkManager.Mode.HOST) {
+             if (current != null && current.getId().equals(playerId)) {
+                 isMyTurn = true;
+             }
+        } else {
+             isMyTurn = true; // Local game
+        }
+        
+        rollButton.setDisable(!isMyTurn);
+        
+        if (isMyTurn) {
+            rollButton.setOpacity(1.0);
+            rollButton.setText("🎲  Losuj");
+        } else {
+            rollButton.setOpacity(0.5);
+            String name = current != null ? current.getUsername() : "";
+            rollButton.setText("Tura: " + name);
         }
     }
 }
