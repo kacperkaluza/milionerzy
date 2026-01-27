@@ -9,6 +9,7 @@ import com.kaluzaplotecka.milionerzy.model.tiles.PropertyTile;
 public class Player implements Serializable {
     private static final long serialVersionUID = 1L;
     
+    private final String id;
     private final String username;
     private int money;
     private int position;
@@ -16,7 +17,8 @@ public class Player implements Serializable {
     private boolean inJail;
     private int jailTurns;
 
-    public Player(String username, int startingMoney) {
+    public Player(String id, String username, int startingMoney) {
+        this.id = id;
         this.username = username;
         this.money = startingMoney;
         this.position = 0;
@@ -26,7 +28,7 @@ public class Player implements Serializable {
     }
 
     public String getId() {
-        return username;
+        return id;
     }
 
     public void setPosition(int position) {
@@ -115,5 +117,19 @@ public class Player implements Serializable {
                 ", position=" + position +
                 ", inJail=" + inJail +
                 '}';
+    }
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+
+        Player player = (Player) o;
+
+        return id != null ? id.equals(player.id) : player.id == null;
+    }
+
+    @Override
+    public int hashCode() {
+        return id != null ? id.hashCode() : 0;
     }
 }

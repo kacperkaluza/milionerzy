@@ -12,10 +12,12 @@ public class GameEvent {
         // Zdarzenia ruchu
         PLAYER_MOVED,           // gracz się przesunął
         DICE_ROLLED,            // rzucono kostką
+        MONEY_CHANGED,          // zmiana stanu konta
         
         // Zdarzenia nieruchomości
         PROPERTY_BOUGHT,        // ktoś kupił nieruchomość
         RENT_PAID,              // ktoś zapłacił czynsz
+        PROPERTY_LANDED_NOT_OWNED, // gracz stanął na niczyjej nieruchomości
         
         // Zdarzenia gracza
         PLAYER_BANKRUPT,        // gracz zbankrutował

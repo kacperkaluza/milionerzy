@@ -24,9 +24,21 @@ public class EventCard implements Serializable {
         switch(type){
             case PAY:
                 player.deductMoney(amountOrPosition);
+                state.fireEvent(new com.kaluzaplotecka.milionerzy.events.GameEvent(
+                    com.kaluzaplotecka.milionerzy.events.GameEvent.Type.MONEY_CHANGED,
+                    player,
+                    -amountOrPosition,
+                    player.getUsername() + " płaci " + amountOrPosition
+                ));
                 break;
             case RECEIVE:
                 player.addMoney(amountOrPosition);
+                state.fireEvent(new com.kaluzaplotecka.milionerzy.events.GameEvent(
+                    com.kaluzaplotecka.milionerzy.events.GameEvent.Type.MONEY_CHANGED,
+                    player,
+                    amountOrPosition,
+                    player.getUsername() + " otrzymuje " + amountOrPosition
+                ));
                 break;
             case MOVE_TO:
                 player.moveTo(amountOrPosition);
