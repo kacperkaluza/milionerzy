@@ -382,8 +382,8 @@ public class NetworkGameTest {
         
         // Stwórz przykładowy stan gry
         List<Player> players = List.of(
-            new Player("host", 1500),
-            new Player("player1", 1500)
+            new Player("host", "host", 1500),
+            new Player("player1", "player1", 1500)
         );
         Board board = new Board(List.of(
             new Tile(0, "START"),

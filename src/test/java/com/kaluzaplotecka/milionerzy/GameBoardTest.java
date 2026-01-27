@@ -22,8 +22,8 @@ public class GameBoardTest extends ApplicationTest {
     @Override
     public void start(Stage stage) {
         players = new ArrayList<>();
-        players.add(new Player("TestPlayer1", 1500));
-        players.add(new Player("TestPlayer2", 1500));
+        players.add(new Player("TestPlayer1", "TestPlayer1", 1500));
+        players.add(new Player("TestPlayer2", "TestPlayer2", 1500));
         
         gameBoardView = new GameBoardView(stage, players, null, "1");
         gameBoardView.show();

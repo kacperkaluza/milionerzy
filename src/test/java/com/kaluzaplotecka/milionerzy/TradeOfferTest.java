@@ -27,8 +27,8 @@ public class TradeOfferTest {
     
     @BeforeEach
     void setUp() {
-        alice = new Player("Alice", 1000);
-        bob = new Player("Bob", 1000);
+        alice = new Player("Alice", "Alice", 1000);
+        bob = new Player("Bob", "Bob", 1000);
         
         prop1 = new PropertyTile(1, "Kielce", 200, 50);
         prop1.setOwner(alice);

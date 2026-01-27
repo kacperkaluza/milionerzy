@@ -16,7 +16,7 @@ public class EventCardTest {
 
     @Test
     public void payAndReceive() {
-        Player p = new Player("Eve", 1000);
+        Player p = new Player("Eve", "Eve", 1000);
 
         EventCard pay = new EventCard("Pay fine", EventCard.ActionType.PAY, 200);
         pay.execute(null, p); // PAY doesn't need GameState
@@ -34,7 +34,7 @@ public class EventCardTest {
         Tile t2 = new Tile(2, "Two");
         Board board = new Board(List.of(t0, t1, t2));
 
-        Player p = new Player("Mover", 100);
+        Player p = new Player("Mover", "Mover", 100);
         GameState state = new GameState(board, List.of(p));
 
         EventCard move = new EventCard("Go to Two", EventCard.ActionType.MOVE_TO, 2);
@@ -60,7 +60,7 @@ public class EventCardTest {
         RecTile t2 = new RecTile(2, "Target");
         Board board = new Board(List.of(t0, t1, t2));
 
-        Player p = new Player("Mover", 100);
+        Player p = new Player("Mover", "Mover", 100);
         GameState state = new GameState(board, List.of(p));
 
         EventCard move = new EventCard("Go to Target", EventCard.ActionType.MOVE_TO, 2);
@@ -72,7 +72,7 @@ public class EventCardTest {
 
     @Test
     public void goToJail() {
-        Player p = new Player("Prisoner", 50);
+        Player p = new Player("Prisoner", "Prisoner", 50);
         EventCard jail = new EventCard("Go to jail", EventCard.ActionType.GO_TO_JAIL, 0);
         assertFalse(p.isInJail());
         jail.execute(null, p);

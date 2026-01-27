@@ -11,7 +11,7 @@ public class PropertyTileTest {
 
     @Test
     public void buyProperty() {
-        Player buyer = new Player("Buyer", 500);
+        Player buyer = new Player("Buyer", "Buyer", 500);
         PropertyTile prop = new PropertyTile(1, "SmallTown", 200, 20);
 
         assertFalse(prop.isOwned());
@@ -24,15 +24,15 @@ public class PropertyTileTest {
 
     @Test
     public void rentPayment() {
-        Player owner = new Player("Owner", 100);
-        Player tenant = new Player("Tenant", 150);
+        Player owner = new Player("Owner", "Owner", 100);
+        Player tenant = new Player("Tenant", "Tenant", 150);
         PropertyTile prop = new PropertyTile(2, "City", 50, 30);
 
         // owner purchases
         boolean bought = prop.buy(owner);
         assertTrue(bought);
 
-        int charged = prop.chargeRent(tenant);
+        int charged = prop.chargeRent(null, tenant);
         assertEquals(prop.calculateRent(), charged);
         // owner initially had 100, paid price when buying
         assertEquals(100 - prop.getPrice() + charged, owner.getMoney());

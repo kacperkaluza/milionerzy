@@ -21,8 +21,8 @@ public class GameStateTest {
         tiles.add(new Tile(0, "Start"));
         Board board = new Board(tiles);
 
-        Player p1 = new Player("P1", 100);
-        Player p2 = new Player("P2", 100);
+        Player p1 = new Player("P1", "P1", 100);
+        Player p2 = new Player("P2", "P2", 100);
 
         // give p1 a property
         PropertyTile prop = new PropertyTile(1, "Prop", 50, 10);
@@ -45,8 +45,8 @@ public class GameStateTest {
     @Test
     public void turnProgression() {
         Board board = new Board(java.util.List.of(new Tile(0,"S")));
-        Player a = new Player("A", 100);
-        Player b = new Player("B", 100);
+        Player a = new Player("A", "A", 100);
+        Player b = new Player("B", "B", 100);
         GameState state = new GameState(board, List.of(a,b));
 
         assertEquals(a, state.getCurrentPlayer());
@@ -60,7 +60,7 @@ public class GameStateTest {
     @Test
     public void passStartReward() {
         Board board = new Board(java.util.List.of(new Tile(0,"Start"), new Tile(1,"A"), new Tile(2,"B")));
-        Player p = new Player("P", 100);
+        Player p = new Player("P", "P", 100);
         GameState state = new GameState(board, List.of(p));
 
         // move player from pos 2 by 1 -> wraps to 0 and should pass start
@@ -74,8 +74,8 @@ public class GameStateTest {
     public void runGameLoop_respectsMaxRounds_returnsNullWhenNoWinner() {
         // simple board with only Start tile -> nothing causes bankruptcy
         Board board = new Board(List.of(new Tile(0, "Start")));
-        Player p1 = new Player("A", 1000);
-        Player p2 = new Player("B", 1000);
+        Player p1 = new Player("A", "A", 1000);
+        Player p2 = new Player("B", "B", 1000);
         GameState gs = new GameState(board, List.of(p1, p2));
 
         // run only a few rounds; there is no mechanism on board to eliminate players
@@ -90,8 +90,8 @@ public class GameStateTest {
         PropertyTile expensive = new PropertyTile(1, "ExpensiveTown", 0, 200);
         Board board = new Board(List.of(new Tile(0, "Start"), expensive));
 
-        Player owner = new Player("Owner", 1000);
-        Player tenant = new Player("Tenant", 100);
+        Player owner = new Player("Owner", "Owner", 1000);
+        Player tenant = new Player("Tenant", "Tenant", 100);
 
         // Owner already owns the property
         expensive.setOwner(owner);
@@ -112,5 +112,21 @@ public class GameStateTest {
 
         // Owner should have received some money (at least some of the rent)
         assertTrue(owner.getMoney() > 1000, "Owner money should increase after collecting rent (or partial amount)");
+    }
+    @Test
+    public void turnProgression_firesEvent() {
+        Board board = new Board(java.util.List.of(new Tile(0,"S")));
+        Player a = new Player("A", "A", 100);
+        Player b = new Player("B", "B", 100);
+        GameState state = new GameState(board, List.of(a,b));
+        
+        List<com.kaluzaplotecka.milionerzy.events.GameEvent> events = new ArrayList<>();
+        state.addEventListener(events::add);
+        
+        state.nextTurn();
+        
+        boolean found = events.stream().anyMatch(e -> e.getType() == com.kaluzaplotecka.milionerzy.events.GameEvent.Type.TURN_STARTED);
+        assertTrue(found, "Should fire TURN_STARTED event");
+        assertEquals(b, state.getCurrentPlayer());
     }
 }

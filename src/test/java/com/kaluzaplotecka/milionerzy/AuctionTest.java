@@ -27,9 +27,9 @@ public class AuctionTest {
     
     @BeforeEach
     void setUp() {
-        alice = new Player("Alice", 500);
-        bob = new Player("Bob", 300);
-        charlie = new Player("Charlie", 200);
+        alice = new Player("Alice", "Alice", 500);
+        bob = new Player("Bob", "Bob", 300);
+        charlie = new Player("Charlie", "Charlie", 200);
         
         property = new PropertyTile(1, "Kielce", 200, 50);
         

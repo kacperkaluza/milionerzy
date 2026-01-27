@@ -12,7 +12,7 @@ public class PlayerTest {
 
     @Test
     public void moneyAndBankruptcy() {
-        Player p = new Player("Alice", 1000);
+        Player p = new Player("Alice", "Alice", 1000);
         assertEquals(1000, p.getMoney());
 
         boolean stillOk = p.deductMoney(500);
@@ -35,7 +35,7 @@ public class PlayerTest {
                 new Tile(3, "C")
         ));
 
-        Player p = new Player("Bob", 500);
+        Player p = new Player("Bob", "Bob", 500);
         assertEquals(0, p.getPosition());
 
         p.moveBy(3, board);
