@@ -177,7 +177,7 @@ public class GameBoardView implements GameEventListener {
             
             // IF HOST: Broadcast events
             if (this.networkManager.getMode() == NetworkManager.Mode.HOST) {
-                this.gameState.addEventListener(new NetworkGameEventListener(this.networkManager));
+                this.gameState.addEventListener(new NetworkGameEventListener(this.networkManager, () -> this.gameState));
                 
                 // Broadcast initial state to ensure everyone is in sync with decks etc.
                 // But wait, clients request sync on Connect. 
@@ -219,12 +219,8 @@ public class GameBoardView implements GameEventListener {
     private void setupNetworkListener() {
         networkManager.setMessageHandler(msg -> {
             Platform.runLater(() -> {
-                // Initial sync case still handled here or inside processNetworkMessage?
-                // processNetworkMessage logic in GameState does NOT handle GAME_STATE_SYNC fully
-                // because it involves clearing players list in View. 
-                // However, logic for events like ROLL_DICE, AUCTION etc is there.
-                
                 boolean isHost = networkManager.getMode() == NetworkManager.Mode.HOST;
+                System.out.println("[DEBUG] Message received: type=" + msg.getType() + ", sender=" + msg.getSenderId() + ", isHost=" + isHost);
                 
                 if (msg.getType() == GameMessage.MessageType.GAME_STATE_SYNC) {
                     if (msg.getPayload() instanceof GameState newState) {
@@ -1255,6 +1251,7 @@ public class GameBoardView implements GameEventListener {
                                 // Host/Local
                                 if (gameState.buyCurrentProperty()) {
                                     gameState.fireEvent(new GameEvent(GameEvent.Type.PROPERTY_BOUGHT, p, tile, p.getUsername() + " kupił " + tile.getCity()));
+                                    gameState.nextTurn();  // Zmień turę po zakupie
                                 }
                             }
                         } else {
@@ -1263,6 +1260,7 @@ public class GameBoardView implements GameEventListener {
                                   networkManager.send(new GameMessage(GameMessage.MessageType.DECLINE_PURCHASE, playerId));
                              } else {
                                   gameState.startAuction(tile);
+                                  // Tura zmieni się po zakończeniu aukcji
                              }
                         }
                     } 

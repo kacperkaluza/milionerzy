@@ -50,8 +50,9 @@ public class NetworkStatusBox extends VBox {
         setAlignment(Pos.TOP_RIGHT);
         setSpacing(5);
         setPadding(new Insets(10));
-        setMaxWidth(250);
-        setMinWidth(200);
+        setPrefWidth(220);
+        setMaxWidth(220);
+        setMinWidth(180);
         
         // Półprzezroczyste tło z efektem glassmorphism
         setStyle(
