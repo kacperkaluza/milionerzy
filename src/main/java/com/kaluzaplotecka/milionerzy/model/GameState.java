@@ -83,7 +83,6 @@ public class GameState implements Serializable {
         Tile currentTile = getCurrentTile();
         if (currentTile instanceof PropertyTile pt && !pt.isOwned()) {
             // Gracz musi podjąć decyzję - nie zmieniaj tury automatycznie
-            System.out.println("[DEBUG] moveCurrentPlayer: Player on unowned property, waiting for decision");
             return;
         }
         
@@ -169,20 +168,7 @@ public class GameState implements Serializable {
         return players.get(0);
     }
 
-    public Player runGameLoop(int maxRounds){
-        if (maxRounds <= 0) maxRounds = Integer.MAX_VALUE;
-        int executed = 0;
-        while (!isGameOver() && executed < maxRounds){
-            moveCurrentPlayer();
-            executed++;
-        }
-        
-        return isGameOver() ? getWinner() : null;
-    }
 
-    public Player runGameLoop(){
-        return runGameLoop(10000);
-    }
 
     /**
      * Return the tile the current player is standing on, or null.
@@ -213,70 +199,14 @@ public class GameState implements Serializable {
      */
     public boolean buyCurrentProperty(){
         Player p = getCurrentPlayer();
-        System.out.println("[DEBUG] buyCurrentProperty called, currentPlayer: " + (p != null ? p.getUsername() : "null"));
         if (p == null) return false;
         Tile t = getCurrentTile();
-        System.out.println("[DEBUG] Current tile position: " + (t != null ? t.getPosition() : "null"));
         if (!(t instanceof PropertyTile)) {
-            System.out.println("[DEBUG] Tile is not PropertyTile, returning false");
             return false;
         }
         PropertyTile prop = (PropertyTile) t;
-        System.out.println("[DEBUG] Property: " + prop.getCity() + ", owned: " + prop.isOwned() + ", price: " + prop.getPrice() + ", player money: " + p.getMoney());
         boolean result = prop.buy(p);
-        System.out.println("[DEBUG] Buy result: " + result);
         return result;
-    }
-
-    /**
-     * Play a single turn for the current player. If `autoBuy` is true, player will automatically
-     * buy an unowned property they land on when they have enough money. If false, purchase must be
-     * triggered by UI calling `buyCurrentProperty()`.
-     * Returns the player who took the turn (may be null if no players).
-     */
-    public Player playTurn(boolean autoBuy){
-        Player p = getCurrentPlayer();
-        if (p == null) return null;
-
-        if (p.isInJail()){
-            p.incrementJailTurns();
-            if (p.getJailTurns() >= 3){
-                p.releaseFromJail();
-            }
-            nextTurn();
-            return p;
-        }
-
-        int steps = rollDice();
-        movePlayerBy(p, steps);
-
-        // After moving, inspect tile for purchase opportunity or rent.
-        Tile t = board.getTile(p.getPosition());
-        if (t instanceof PropertyTile){
-            PropertyTile prop = (PropertyTile) t;
-            if (!prop.isOwned()){
-                if (autoBuy && p.getMoney() >= prop.getPrice()){
-                    prop.buy(p);
-                }
-            } else if (prop.getOwner() != p){
-                prop.chargeRent(this, p);
-                if (p.isBankrupt()) handleBankruptcy(p);
-            }
-        } else if (t != null){
-            // non-property tiles handle their own effects
-            t.onLand(this, p);
-        }
-
-        if (p.isBankrupt()){
-            handleBankruptcy(p);
-        }
-
-        nextTurn();
-        return p;
-    }
-
-    public Player playTurn(){
-        return playTurn(true);
     }
 
     /* --- Event card / deck helpers --- */
@@ -580,16 +510,12 @@ public class GameState implements Serializable {
                 }
             }
             case BUY_PROPERTY -> {
-                System.out.println("[DEBUG] processNetworkMessage: BUY_PROPERTY received, isHost: " + isHost);
                 if (isHost) {
                    String senderId = msg.getSenderId();
                    Player currentPlayer = getCurrentPlayer();
-                   System.out.println("[DEBUG] BUY_PROPERTY: senderId=" + senderId + ", currentPlayerId=" + (currentPlayer != null ? currentPlayer.getId() : "null"));
                    // Verify if sender is current player (compare by ID, not reference)
                    if (currentPlayer != null && currentPlayer.getId().equals(senderId)) {
-                        System.out.println("[DEBUG] BUY_PROPERTY: Player verified, calling buyCurrentProperty()");
                         boolean success = buyCurrentProperty();
-                        System.out.println("[DEBUG] BUY_PROPERTY: buyCurrentProperty returned " + success);
                         if (success) {
                             fireEvent(new GameEvent(
                                 GameEvent.Type.PROPERTY_BOUGHT,
@@ -601,8 +527,6 @@ public class GameState implements Serializable {
                             nextTurn();
                         }
                         processed = true;
-                   } else {
-                        System.out.println("[DEBUG] BUY_PROPERTY: Player ID mismatch or null currentPlayer");
                    }
                 }
             }
