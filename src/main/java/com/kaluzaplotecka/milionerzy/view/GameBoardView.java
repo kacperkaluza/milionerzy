@@ -220,10 +220,16 @@ public class GameBoardView implements GameEventListener {
         networkManager.setMessageHandler(msg -> {
             Platform.runLater(() -> {
                 boolean isHost = networkManager.getMode() == NetworkManager.Mode.HOST;
-                System.out.println("[DEBUG] Message received: type=" + msg.getType() + ", sender=" + msg.getSenderId() + ", isHost=" + isHost);
                 
                 if (msg.getType() == GameMessage.MessageType.GAME_STATE_SYNC) {
-                    if (msg.getPayload() instanceof GameState newState) {
+                    // Pełna synchronizacja stanu - tylko dla klienta
+                    if (!isHost && msg.getPayload() instanceof GameState newState) {
+                        // Zapisz stare pozycje przed aktualizacją
+                        Map<String, Integer> oldPositions = new HashMap<>();
+                        for (Player p : this.players) {
+                            oldPositions.put(p.getId(), p.getPosition());
+                        }
+                        
                         this.gameState = newState;
                         this.players.clear();
                         this.players.addAll(this.gameState.getPlayers());
@@ -231,43 +237,16 @@ public class GameBoardView implements GameEventListener {
                         // Re-bind listener to new state
                         this.gameState.addEventListener(this);
                         
-                        // Refresh UI
-                        initializePawns();
-                        refreshBoard(); // Call refreshBoard to update player panels and positions
+                        // Animuj zmiany pozycji zamiast teleportować
+                        syncPawnsOnStateChange(oldPositions);
+                        refreshBoard();
                         updateRollButtonState();
                     }
                 } else if (msg.getType() == GameMessage.MessageType.DICE_RESULT) {
-                    // Animation handling
+                    // Animation handling - dla wszystkich
                     if (msg.getPayload() instanceof Integer val) {
                         animateDiceRoll(val);
                     }
-                } else if (msg.getType() == GameMessage.MessageType.MONEY_UPDATE) {
-                    String senderId = msg.getSenderId();
-                    if (msg.getPayload() instanceof Integer newMoney) {
-                         // Find player and update directly
-                         Player p = players.stream().filter(pl -> pl.getId().equals(senderId)).findFirst().orElse(null);
-                         if (p != null) {
-                             // We update local model for consistency
-                             // But wait, p.setMoney() doesn't exist? Player has money field but no setter?
-                             // Player.java: private int money; ... addMoney/deductMoney.
-                             // We need setMoney or calculate diff.
-                             // Add setMoney to Player? Or just use diff.
-                             // If we send absolute value, we need to set absolute value.
-                             
-                             // Let's assume we add setMoney to Player or calculate diff.
-                             // Actually, let's use reflection or add method. Easier to add method.
-                             // Or... we calculate diff: int diff = newMoney - p.getMoney(); p.addMoney(diff);
-                             
-                             int current = p.getMoney();
-                             int diff = newMoney - current;
-                             p.addMoney(diff); 
-                             
-                             refreshBoard();
-                         }
-                    }
-                } else if (msg.getType() == GameMessage.MessageType.MOVE) {
-                    // Animation handling
-                    handleMove(msg);
                 } else if (msg.getType() == GameMessage.MessageType.PROPERTY_OFFER) {
                     // Klient otrzymuje informację o możliwości kupna nieruchomości
                     if (!isHost) {
@@ -280,8 +259,14 @@ public class GameBoardView implements GameEventListener {
                             }
                         }
                     }
+                } else if (msg.getType() == GameMessage.MessageType.MOVE) {
+                    // Animacja ruchu - dla wszystkich
+                    handleMove(msg);
+                } else if (!isHost) {
+                    // Klient: ignoruj inne wiadomości aktualizujące stan
+                    // (i tak dostaniemy GAME_STATE_SYNC)
                 } else {
-                    // Delegate logic to GameState
+                    // Host: przetwarzaj wiadomości od klientów
                     gameState.processNetworkMessage(msg, isHost, networkManager);
                 }
             });
@@ -611,6 +596,61 @@ public class GameBoardView implements GameEventListener {
         }
     }
     
+    /**
+     * Synchronizuje pionki po otrzymaniu GAME_STATE_SYNC.
+     * Animuje ruchy zamiast teleportować pionki.
+     */
+    private void syncPawnsOnStateChange(Map<String, Integer> oldPositions) {
+        for (int i = 0; i < players.size(); i++) {
+            Player p = players.get(i);
+            Circle existingPawn = null;
+            
+            // Szukaj istniejącego pionka dla gracza o tym ID
+            for (var entry : playerPawns.entrySet()) {
+                if (entry.getKey().getId().equals(p.getId())) {
+                    existingPawn = entry.getValue();
+                    playerPawns.remove(entry.getKey());
+                    playerPawns.put(p, existingPawn);
+                    break;
+                }
+            }
+            
+            if (existingPawn != null) {
+                // Pionek istnieje - animuj do nowej pozycji
+                Integer oldPos = oldPositions.get(p.getId());
+                int newPos = p.getPosition();
+                
+                if (oldPos != null && oldPos != newPos) {
+                    animatePlayerMovement(p, oldPos, newPos);
+                }
+            } else {
+                // Nowy gracz - stwórz pionek
+                String colorHex = switch (i % 4) {
+                    case 0 -> "#667eea";
+                    case 1 -> "#e74c3c";
+                    case 2 -> "#27ae60";
+                    case 3 -> "#f39c12";
+                    default -> "black";
+                };
+                
+                Circle pawn = new Circle(10);
+                pawn.setFill(Color.web(colorHex));
+                pawn.setStroke(Color.BLACK);
+                pawn.setStrokeWidth(1);
+                
+                Point2D startPos = getTileCenter(p.getPosition());
+                double offsetX = (i % 2 == 0 ? -5 : 5);
+                double offsetY = (i < 2 ? -5 : 5);
+                
+                pawn.setTranslateX(startPos.getX() + offsetX);
+                pawn.setTranslateY(startPos.getY() + offsetY);
+                
+                playerPawns.put(p, pawn);
+                playerLayer.getChildren().add(pawn);
+            }
+        }
+    }
+
     private StackPane createTile(double x, double y, double width, double height, String[] tileData, boolean vertical) {
         StackPane tile = new StackPane();
         tile.setLayoutX(x);

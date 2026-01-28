@@ -398,6 +398,9 @@ public class NetworkManager {
         void send(GameMessage msg) {
             try {
                 if (out != null) {
+                    // CRITICAL: reset() czyści cache ObjectOutputStream
+                    // Bez tego kolejne wysłania tego samego obiektu zawierają stare dane!
+                    out.reset();
                     out.writeObject(msg);
                     out.flush();
                 }
@@ -405,6 +408,7 @@ public class NetworkManager {
                 System.err.println("Błąd wysyłania do klienta: " + e.getMessage());
             }
         }
+
         
         void close() {
             try {

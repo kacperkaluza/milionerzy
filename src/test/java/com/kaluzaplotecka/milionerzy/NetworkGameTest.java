@@ -486,4 +486,67 @@ public class NetworkGameTest {
         assertEquals("player1", chatReceived.get().getSenderId());
         assertEquals("Cześć wszystkim! 🎲", chatReceived.get().getPayload());
     }
+    
+    @Test
+    @Order(10)
+    @DisplayName("Automatyczna synchronizacja stanu gry przy zmianie tury")
+    void testAutoGameStateSyncOnTurnChange() throws IOException, InterruptedException {
+        CountDownLatch syncLatch = new CountDownLatch(1);
+        AtomicReference<GameMessage> syncMessage = new AtomicReference<>();
+        AtomicReference<GameState> receivedState = new AtomicReference<>();
+        
+        client1Manager.setMessageHandler(msg -> {
+            if (msg.getType() == GameMessage.MessageType.GAME_STATE_SYNC) {
+                syncMessage.set(msg);
+                if (msg.getPayload() instanceof GameState gs) {
+                    receivedState.set(gs);
+                }
+                syncLatch.countDown();
+            }
+        });
+        
+        // Start host i połączenie klienta
+        hostManager.startHost(TEST_PORT);
+        Thread.sleep(100);
+        client1Manager.connectToHost("localhost", TEST_PORT, "player1");
+        Thread.sleep(200);
+        
+        // Stwórz prawdziwy stan gry z planszą i graczami
+        List<Player> gamePlayers = List.of(
+            new Player("host", "Host", 1500),
+            new Player("player1", "Player1", 1500)
+        );
+        Board board = new Board(List.of(
+            new Tile(0, "START"),
+            new Tile(1, "Kielce Centrum"),
+            new Tile(2, "Sandomierz")
+        ));
+        GameState gameState = new GameState(board, gamePlayers);
+        
+        // Podepnij NetworkGameEventListener do automatycznego broadcastu przy zmianie tury
+        com.kaluzaplotecka.milionerzy.network.NetworkGameEventListener eventListener = 
+            new com.kaluzaplotecka.milionerzy.network.NetworkGameEventListener(
+                hostManager, 
+                () -> gameState
+            );
+        gameState.addEventListener(eventListener);
+        
+        // Wywołaj zmianę tury - powinno automatycznie wysłać GAME_STATE_SYNC
+        gameState.nextTurn();
+        
+        // Czekaj na synchronizację
+        boolean synced = syncLatch.await(2, TimeUnit.SECONDS);
+        assertTrue(synced, "Klient powinien otrzymać automatyczną synchronizację stanu przy zmianie tury");
+        
+        // Weryfikuj otrzymaną wiadomość
+        assertNotNull(syncMessage.get(), "Wiadomość sync nie powinna być null");
+        assertEquals(GameMessage.MessageType.GAME_STATE_SYNC, syncMessage.get().getType());
+        
+        // Weryfikuj otrzymany stan gry
+        assertNotNull(receivedState.get(), "Otrzymany stan gry nie powinien być null");
+        assertEquals(2, receivedState.get().getPlayers().size(), "Stan gry powinien zawierać 2 graczy");
+        // Po nextTurn() aktualny gracz to player1 (indeks 1)
+        assertEquals("player1", receivedState.get().getCurrentPlayer().getId(), 
+            "Aktualny gracz w otrzymanym stanie powinien być player1");
+    }
 }
