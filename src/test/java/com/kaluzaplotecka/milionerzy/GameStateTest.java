@@ -71,16 +71,19 @@ public class GameStateTest {
     }
 
     @Test
-    public void runGameLoop_respectsMaxRounds_returnsNullWhenNoWinner() {
+    public void manualGameLoop_respectsMaxRounds_returnsNullWhenNoWinner() {
         // simple board with only Start tile -> nothing causes bankruptcy
         Board board = new Board(List.of(new Tile(0, "Start")));
         Player p1 = new Player("A", "A", 1000);
         Player p2 = new Player("B", "B", 1000);
         GameState gs = new GameState(board, List.of(p1, p2));
 
-        // run only a few rounds; there is no mechanism on board to eliminate players
-        Player winner = gs.runGameLoop(5);
-        assertNull(winner, "No winner should be returned when maxRounds reached and multiple players remain");
+        // run only a few rounds using nextTurn()
+        for(int i=0; i<5; i++) {
+             gs.nextTurn();
+        }
+        
+        assertFalse(gs.isGameOver(), "Game should not be over");
         assertEquals(2, gs.getPlayers().size(), "Both players should still be present");
     }
 

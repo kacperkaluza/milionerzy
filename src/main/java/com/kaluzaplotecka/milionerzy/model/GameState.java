@@ -50,6 +50,16 @@ public class GameState implements Serializable {
         return d1 + d2;
     }
 
+    /**
+     * Pozwala wstrzyknąć kontrolowany Random dla testów.
+     * Użyj new Random(seed) dla deterministycznych wyników.
+     */
+    public void setRandom(Random rand) {
+        this.rand = rand;
+    }
+
+
+
     public void moveCurrentPlayer(){
         Player p = getCurrentPlayer();
         if (p == null) return;
