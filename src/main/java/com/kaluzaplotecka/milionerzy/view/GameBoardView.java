@@ -786,6 +786,7 @@ public class GameBoardView implements GameEventListener {
         Label nameLabel = new Label(name);
         nameLabel.setFont(Font.font("System", FontWeight.BOLD, 14));
         nameLabel.setTextFill(Color.web("#2d3436"));
+        nameLabel.setId("nameLabel_" + name.replaceAll("\\s+", "_")); // ID dla TestFX
         
         // Pieniądze
         HBox moneyBox = new HBox(3);
@@ -793,6 +794,7 @@ public class GameBoardView implements GameEventListener {
         Label moneyLabel = new Label(String.format("%,d", money));
         moneyLabel.setFont(Font.font("System", FontWeight.BOLD, 16));
         moneyLabel.setTextFill(Color.web("#27ae60"));
+        moneyLabel.setId("moneyLabel_" + name.replaceAll("\\s+", "_")); // ID dla TestFX
         Label currencyLabel = new Label("zł");
         currencyLabel.setFont(Font.font("System", FontWeight.NORMAL, 12));
         currencyLabel.setTextFill(Color.web("#636e72"));
@@ -802,6 +804,7 @@ public class GameBoardView implements GameEventListener {
         Label propertiesLabel = new Label("🏠 0 nieruchomości");
         propertiesLabel.setFont(Font.font("System", FontWeight.NORMAL, 10));
         propertiesLabel.setTextFill(Color.web("#636e72"));
+        propertiesLabel.setId("propertiesLabel_" + name.replaceAll("\\s+", "_")); // ID dla TestFX
         
         panel.getChildren().addAll(avatarPane, nameLabel, moneyBox, propertiesLabel);
         return panel;
@@ -811,6 +814,7 @@ public class GameBoardView implements GameEventListener {
         VBox diceArea = new VBox(20);
         diceArea.setAlignment(Pos.CENTER);
         diceArea.setMaxSize(280, 200);
+        diceArea.setId("diceArea"); // ID dla TestFX
         
         // Tło dla kostek
         diceArea.setStyle(
@@ -832,12 +836,14 @@ public class GameBoardView implements GameEventListener {
         for (int i = 0; i < 2; i++) {
             StackPane dice = createDice(1);
             diceStacks[i] = dice;
+            dice.setId("dice" + i); // ID dla TestFX
             diceLabels[i] = (Label) ((StackPane) dice.getChildren().get(0)).getChildren().get(1);
             diceBox.getChildren().add(dice);
         }
         
         // Przycisk rzutu
         rollButton = new Button("🎲  Losuj");
+        rollButton.setId("rollButton"); // ID dla TestFX
         rollButton.setStyle(
             "-fx-background-color: #3498db;" +
             "-fx-text-fill: white;" +
