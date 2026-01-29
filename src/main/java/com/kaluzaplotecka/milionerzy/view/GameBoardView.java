@@ -30,6 +30,7 @@ import com.kaluzaplotecka.milionerzy.events.GameEventListener;
 import com.kaluzaplotecka.milionerzy.model.Board;
 import com.kaluzaplotecka.milionerzy.model.GameState;
 import com.kaluzaplotecka.milionerzy.model.Player;
+import com.kaluzaplotecka.milionerzy.model.SaveManager;
 import com.kaluzaplotecka.milionerzy.model.tiles.ChanceTile;
 import com.kaluzaplotecka.milionerzy.model.tiles.CommunityChestTile;
 import com.kaluzaplotecka.milionerzy.model.tiles.PropertyTile;
@@ -41,6 +42,7 @@ import javafx.application.Platform;
 import javafx.animation.SequentialTransition;
 import javafx.animation.TranslateTransition;
 import javafx.geometry.Point2D;
+import javafx.scene.control.TextInputDialog;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.ArrayList;
@@ -918,7 +920,42 @@ public class GameBoardView implements GameEventListener {
         
         updateRollButtonState();
         
-        diceArea.getChildren().addAll(diceBox, rollButton);
+        // Przycisk zapisu
+        Button saveButton = new Button("💾  Zapisz grę");
+        saveButton.setId("saveButton");
+        saveButton.setStyle(
+            "-fx-background-color: #27ae60;" +
+            "-fx-text-fill: white;" +
+            "-fx-font-size: 14px;" +
+            "-fx-font-weight: bold;" +
+            "-fx-padding: 8 20;" +
+            "-fx-background-radius: 20;" +
+            "-fx-cursor: hand;"
+        );
+        
+        saveButton.setOnMouseEntered(e -> saveButton.setStyle(
+            "-fx-background-color: #219a52;" +
+            "-fx-text-fill: white;" +
+            "-fx-font-size: 14px;" +
+            "-fx-font-weight: bold;" +
+            "-fx-padding: 8 20;" +
+            "-fx-background-radius: 20;" +
+            "-fx-cursor: hand;"
+        ));
+        
+        saveButton.setOnMouseExited(e -> saveButton.setStyle(
+            "-fx-background-color: #27ae60;" +
+            "-fx-text-fill: white;" +
+            "-fx-font-size: 14px;" +
+            "-fx-font-weight: bold;" +
+            "-fx-padding: 8 20;" +
+            "-fx-background-radius: 20;" +
+            "-fx-cursor: hand;"
+        ));
+        
+        saveButton.setOnAction(e -> saveGame());
+        
+        diceArea.getChildren().addAll(diceBox, rollButton, saveButton);
         return diceArea;
     }
     
@@ -958,6 +995,34 @@ public class GameBoardView implements GameEventListener {
             case 6 -> "⚅";
             default -> "⚀";
         };
+    }
+    
+    /**
+     * Zapisuje aktualny stan gry do pliku.
+     */
+    private void saveGame() {
+        TextInputDialog dialog = new TextInputDialog("Moja gra");
+        dialog.setTitle("Zapisz grę");
+        dialog.setHeaderText("Podaj nazwę zapisu");
+        dialog.setContentText("Nazwa:");
+        
+        dialog.showAndWait().ifPresent(saveName -> {
+            try {
+                String filename = SaveManager.save(gameState, saveName);
+                
+                Alert alert = new Alert(Alert.AlertType.INFORMATION);
+                alert.setTitle("Zapis gry");
+                alert.setHeaderText(null);
+                alert.setContentText("Gra została zapisana pomyślnie!\n\nPlik: " + filename);
+                alert.showAndWait();
+            } catch (Exception e) {
+                Alert alert = new Alert(Alert.AlertType.ERROR);
+                alert.setTitle("Błąd zapisu");
+                alert.setHeaderText("Nie udało się zapisać gry");
+                alert.setContentText(e.getMessage());
+                alert.showAndWait();
+            }
+        });
     }
     
     private void rollDice() {
@@ -1059,6 +1124,17 @@ public class GameBoardView implements GameEventListener {
         stage.setResizable(false); // Blokujemy resize
         stage.show();
     }
+    
+    /**
+     * Ustawia wczytany stan gry (używane przy wczytywaniu zapisów).
+     */
+    public void setGameState(GameState loadedState) {
+        this.gameState = loadedState;
+        this.players.clear();
+        this.players.addAll(loadedState.getPlayers());
+        loadedState.addEventListener(this);
+    }
+    
     /**
      * Oblicza środek pola o danym indeksie (0-39).
      */
