@@ -9,8 +9,8 @@ import com.kaluzaplotecka.milionerzy.model.tiles.PropertyTile;
 public class Player implements Serializable {
     private static final long serialVersionUID = 1L;
     
-    private final String id;
-    private final String username;
+    private String id;
+    private String username;
     private int money;
     private int position;
     private final List<PropertyTile> ownedProperties;
@@ -30,6 +30,10 @@ public class Player implements Serializable {
     public String getId() {
         return id;
     }
+    
+    public void setId(String id) {
+        this.id = id;
+    }
 
     public void setPosition(int position) {
         this.position = position;
@@ -38,6 +42,10 @@ public class Player implements Serializable {
 
     public String getUsername() {
         return username;
+    }
+    
+    public void setName(String name) {
+        this.username = name;
     }
 
     public int getMoney() {
