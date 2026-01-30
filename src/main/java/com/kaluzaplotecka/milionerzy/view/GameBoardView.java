@@ -1105,16 +1105,37 @@ public class GameBoardView implements GameEventListener {
         pauseBtn.setEffect(shadow);
         
         pauseBtn.setOnAction(e -> {
-            // Powrót do menu
-            MainMenu mainMenu = new MainMenu();
-            try {
-                mainMenu.start(stage);
-            } catch (Exception ex) {
-                ex.printStackTrace();
-            }
+            showPauseDialog();
         });
         
         return pauseBtn;
+    }
+    
+    /**
+     * Wyświetla okienko pauzy z opcjami powrotu do gry lub menu głównego.
+     */
+    private void showPauseDialog() {
+        Alert pauseDialog = new Alert(Alert.AlertType.NONE);
+        pauseDialog.setTitle("Pauza");
+        pauseDialog.setHeaderText("Gra wstrzymana");
+        pauseDialog.setContentText("Wybierz co chcesz zrobić:");
+        
+        ButtonType resumeButton = new ButtonType("Powrót do gry");
+        ButtonType menuButton = new ButtonType("Menu Główne");
+        
+        pauseDialog.getButtonTypes().setAll(resumeButton, menuButton);
+        
+        pauseDialog.showAndWait().ifPresent(response -> {
+            if (response == menuButton) {
+                MainMenu mainMenu = new MainMenu();
+                try {
+                    mainMenu.start(stage);
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                }
+            }
+            // Powrót do gry nie robi nic - dialog się zamyka
+        });
     }
     
     public void show() {
