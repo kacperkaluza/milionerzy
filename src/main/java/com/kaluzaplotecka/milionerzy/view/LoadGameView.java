@@ -92,10 +92,15 @@ public class LoadGameView {
         HBox buttonsBox = new HBox(15);
         buttonsBox.setAlignment(Pos.CENTER);
         
-        Button loadBtn = new Button("▶️ Wczytaj");
+        Button loadBtn = new Button("▶️ Gra lokalna");
         loadBtn.setStyle(BUTTON_GREEN_STYLE);
         loadBtn.setOnAction(e -> loadSelectedGame());
         loadBtn.setDisable(true);
+        
+        Button hostBtn = new Button("🌐 Hostuj grę");
+        hostBtn.setStyle(BUTTON_STYLE);
+        hostBtn.setOnAction(e -> hostSelectedGame());
+        hostBtn.setDisable(true);
         
         Button deleteBtn = new Button("🗑️ Usuń");
         deleteBtn.setStyle(BUTTON_RED_STYLE);
@@ -114,10 +119,11 @@ public class LoadGameView {
         savesList.getSelectionModel().selectedItemProperty().addListener((obs, old, newVal) -> {
             boolean hasSelection = newVal != null;
             loadBtn.setDisable(!hasSelection);
+            hostBtn.setDisable(!hasSelection);
             deleteBtn.setDisable(!hasSelection);
         });
         
-        buttonsBox.getChildren().addAll(loadBtn, deleteBtn, refreshBtn, backBtn);
+        buttonsBox.getChildren().addAll(loadBtn, hostBtn, deleteBtn, refreshBtn, backBtn);
         
         // Informacja gdy brak zapisów
         Label noSavesLabel = new Label("Brak zapisanych gier");
@@ -167,6 +173,41 @@ public class LoadGameView {
             alert.setContentText(e.getMessage());
             alert.showAndWait();
         }
+    }
+    
+    private void hostSelectedGame() {
+        SaveInfo selected = savesList.getSelectionModel().getSelectedItem();
+        if (selected == null) return;
+        
+        // Dialog z nazwą gracza-hosta
+        TextInputDialog dialog = new TextInputDialog("Host");
+        dialog.setTitle("Hostuj grę");
+        dialog.setHeaderText("Podaj swoją nazwę gracza");
+        dialog.setContentText("Nazwa:");
+        
+        dialog.showAndWait().ifPresent(playerName -> {
+            if (playerName.trim().isEmpty()) return;
+            
+            try {
+                GameState loadedState = SaveManager.load(selected.getFilename());
+                
+                // Otwórz lobby jako host z wczytanym stanem
+                LobbyView lobby = new LobbyView(
+                    stage,
+                    playerName.trim(),
+                    loadedState,  // przekazujemy wczytany stan
+                    () -> show()  // callback powrotu
+                );
+                lobby.show();
+                
+            } catch (Exception e) {
+                Alert alert = new Alert(Alert.AlertType.ERROR);
+                alert.setTitle("Błąd");
+                alert.setHeaderText("Nie udało się wczytać gry");
+                alert.setContentText(e.getMessage());
+                alert.showAndWait();
+            }
+        });
     }
     
     private void deleteSelectedSave() {
