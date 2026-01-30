@@ -131,9 +131,9 @@ public class GameBoardTest extends ApplicationTest {
         VBox diceArea = lookup("#diceArea").query();
         assertNotNull(diceArea, "Obszar kostek powinien istnieć");
         
-        // Sprawdź że diceArea zawiera kostki i przycisk
-        assertEquals(2, diceArea.getChildren().size(), 
-            "Obszar kostek powinien zawierać 2 elementy (HBox z kostkami i przycisk)");
+        // Sprawdź że diceArea zawiera kostki, przycisk losowania i przycisk zapisu
+        assertEquals(3, diceArea.getChildren().size(), 
+            "Obszar kostek powinien zawierać 3 elementy (HBox z kostkami, przycisk losuj, przycisk zapisz)");
     }
     
     @Test
@@ -148,5 +148,45 @@ public class GameBoardTest extends ApplicationTest {
         
         assertEquals("TestPlayer1", nameLabel1.getText());
         assertEquals("TestPlayer2", nameLabel2.getText());
+    }
+    
+    @Test
+    public void testPauseButtonExists() {
+        WaitForAsyncUtils.waitForFxEvents();
+        
+        // Szukaj przycisku pauzy (⏸)
+        Button pauseButton = lookup("⏸").queryButton();
+        
+        assertNotNull(pauseButton, "Przycisk pauzy powinien istnieć");
+        assertTrue(pauseButton.isVisible(), "Przycisk pauzy powinien być widoczny");
+    }
+    
+    @Test
+    public void testPauseButtonClick_showsDialog() {
+        WaitForAsyncUtils.waitForFxEvents();
+        
+        // Kliknij przycisk pauzy
+        clickOn("⏸");
+        WaitForAsyncUtils.waitForFxEvents();
+        
+        // Weryfikuj że dialog pauzy się pojawił
+        verifyThat("Powrót do gry", isVisible());
+        verifyThat("Menu Główne", isVisible());
+    }
+    
+    @Test
+    public void testPauseDialog_resumeClosesDialog() {
+        WaitForAsyncUtils.waitForFxEvents();
+        
+        // Kliknij przycisk pauzy
+        clickOn("⏸");
+        WaitForAsyncUtils.waitForFxEvents();
+        
+        // Kliknij "Powrót do gry"
+        clickOn("Powrót do gry");
+        WaitForAsyncUtils.waitForFxEvents();
+        
+        // Weryfikuj że gra dalej działa - przycisk rzutu powinien być widoczny
+        verifyThat("#rollButton", isVisible());
     }
 }
