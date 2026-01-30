@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Random;
 import java.util.UUID;
 
+import com.kaluzaplotecka.milionerzy.model.GameState;
 import com.kaluzaplotecka.milionerzy.model.Player;
 import com.kaluzaplotecka.milionerzy.network.GameMessage;
 import com.kaluzaplotecka.milionerzy.network.NetworkManager;
@@ -40,6 +41,7 @@ public class LobbyView {
     private String roomCode;
     private String playerName;
     private String playerId;
+    private GameState loadedGameState; // Wczytany stan gry (do hostowania zapisu)
     
     // UI Components
     private Label playersCountLabel;
@@ -139,6 +141,19 @@ public class LobbyView {
         this.roomCode = roomCode;
         this.onBack = onBack;
         this.playerId = UUID.randomUUID().toString().substring(0, 8);
+    }
+    
+    /**
+     * Konstruktor dla trybu HOST z wczytanym stanem gry (hostowanie zapisanej gry).
+     */
+    public LobbyView(Stage stage, String playerName, GameState loadedState, Runnable onBack) {
+        this.stage = stage;
+        this.isHost = true;
+        this.playerName = playerName;
+        this.onBack = onBack;
+        this.playerId = UUID.randomUUID().toString().substring(0, 8);
+        this.roomCode = generateRoomCode();
+        this.loadedGameState = loadedState;
     }
     
     public void show() {
@@ -723,7 +738,36 @@ public class LobbyView {
 
         // Przejście do widoku gry
         Platform.runLater(() -> {
-            GameBoardView boardView = new GameBoardView(stage, gamePlayers, networkManager, playerId);
+            GameBoardView boardView;
+            
+            if (loadedGameState != null) {
+                // Mapowanie nowych graczy z lobby na graczy z wczytanego stanu
+                // Aktualizujemy ID i nazwy graczy w zapisanym stanie
+                List<Player> savedPlayers = loadedGameState.getPlayers();
+                int minPlayers = Math.min(players.size(), savedPlayers.size());
+                
+                for (int i = 0; i < minPlayers; i++) {
+                    Player savedPlayer = savedPlayers.get(i);
+                    PlayerInfo lobbyPlayer = players.get(i);
+                    
+                    // Aktualizuj ID i nazwę gracza z zapisu na nowe z lobby
+                    savedPlayer.setId(lobbyPlayer.id);
+                    savedPlayer.setName(lobbyPlayer.name);
+                }
+                
+                // Usuń nadmiarowych graczy jeśli w lobby jest mniej osób
+                while (savedPlayers.size() > players.size()) {
+                    savedPlayers.remove(savedPlayers.size() - 1);
+                }
+                
+                // Użyj graczy z wczytanego stanu (z zaktualizowanymi ID)
+                boardView = new GameBoardView(stage, savedPlayers, networkManager, playerId);
+                boardView.setGameState(loadedGameState);
+            } else {
+                // Normalna gra - nowi gracze
+                boardView = new GameBoardView(stage, gamePlayers, networkManager, playerId);
+            }
+            
             boardView.show();
         });
     }
