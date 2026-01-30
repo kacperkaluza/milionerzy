@@ -181,8 +181,8 @@ public class NetworkManager {
     public void send(GameMessage message) {
         if (mode == Mode.OFFLINE) return;
         
-        // Powiadom o wysyłaniu
-        if (sendingCallback != null && message.requiresAck()) {
+        // Powiadom o wysyłaniu (tylko klient śledzi odpowiedzi)
+        if (mode == Mode.CLIENT && sendingCallback != null && message.requiresAck()) {
             sendingCallback.accept(message);
         }
         
