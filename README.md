@@ -139,10 +139,6 @@ Testy obejmują:
 mvn clean package
 ```
 
-## Dokumentacja
-
-Szczegółowy opis projektu znajduje się w pliku `design.pdf`.
-
 ## Autorzy
 
 Informacje o autorach dostępne są w grze w sekcji "Autorzy" z menu głównego.
