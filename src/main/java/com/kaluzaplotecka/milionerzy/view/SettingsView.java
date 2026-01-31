@@ -44,6 +44,12 @@ public class SettingsView {
         volumeSlider.setMaxWidth(300);
         volumeBox.getChildren().addAll(volumeLabel, volumeSlider);
 
+        // Initialize slider and add listener
+        volumeSlider.setValue(com.kaluzaplotecka.milionerzy.manager.SoundManager.getInstance().getVolume() * 100);
+        volumeSlider.valueProperty().addListener((obs, oldVal, newVal) -> {
+            com.kaluzaplotecka.milionerzy.manager.SoundManager.getInstance().setVolume(newVal.doubleValue() / 100.0);
+        });
+
         Button backBtn = new Button("Powrót");
         backBtn.setStyle(BUTTON_STYLE);
         backBtn.setOnAction(e -> onBack.run());

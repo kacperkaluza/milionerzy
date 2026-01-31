@@ -2,6 +2,7 @@ package com.kaluzaplotecka.milionerzy.model;
 
 import com.kaluzaplotecka.milionerzy.network.GameMessage;
 
+import com.kaluzaplotecka.milionerzy.manager.SoundManager;
 import java.io.Serializable;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -71,6 +72,8 @@ public class GameState implements Serializable {
             nextTurn();
             return;
         }
+
+        SoundManager.getInstance().playSound("dice.mp3");
 
         int steps = rollDice();
         
