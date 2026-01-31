@@ -1,5 +1,6 @@
 package com.kaluzaplotecka.milionerzy.view;
 
+import com.kaluzaplotecka.milionerzy.manager.SoundManager;
 import javafx.animation.KeyFrame;
 import javafx.animation.RotateTransition;
 import javafx.animation.Timeline;
@@ -1341,7 +1342,10 @@ public class GameBoardView implements GameEventListener {
         switch (event.getType()) {
             case DICE_ROLLED -> {
                 int val = (int) event.getData();
-                 javafx.application.Platform.runLater(() -> animateDiceRoll(val));
+                 javafx.application.Platform.runLater(() -> {
+                     SoundManager.getInstance().playSound("dice.mp3");
+                     animateDiceRoll(val);
+                 });
             }
             case PLAYER_MOVED -> {
                 Player p = (Player) event.getSource();
