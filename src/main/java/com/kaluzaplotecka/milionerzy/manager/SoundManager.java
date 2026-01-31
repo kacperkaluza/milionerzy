@@ -29,7 +29,7 @@ public class SoundManager {
 
     /**
      * Plays a sound effect by name (filename in resources/sounds/).
-     * Example: playSound("dice.wav")
+     * Example: playSound("dice.mp3")
      * 
      * @param soundName Name of the sound file
      */
