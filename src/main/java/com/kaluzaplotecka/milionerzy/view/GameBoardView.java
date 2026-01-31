@@ -1127,6 +1127,17 @@ public class GameBoardView implements GameEventListener {
         
         pauseDialog.showAndWait().ifPresent(response -> {
             if (response == menuButton) {
+                if (networkManager != null) {
+                    GameMessage msg = new GameMessage(
+                        GameMessage.MessageType.DISCONNECT,
+                        playerId,
+                        "Player left game"
+                    );
+                    msg.setBroadcast(true);
+                    networkManager.send(msg);
+                    networkManager.stop();
+                }
+                
                 MainMenu mainMenu = new MainMenu();
                 try {
                     mainMenu.start(stage);
