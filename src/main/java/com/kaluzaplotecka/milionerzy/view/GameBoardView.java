@@ -1,5 +1,6 @@
 package com.kaluzaplotecka.milionerzy.view;
 
+import com.kaluzaplotecka.milionerzy.manager.SoundManager;
 import javafx.animation.KeyFrame;
 import javafx.animation.RotateTransition;
 import javafx.animation.Timeline;
@@ -1127,6 +1128,17 @@ public class GameBoardView implements GameEventListener {
         
         pauseDialog.showAndWait().ifPresent(response -> {
             if (response == menuButton) {
+                if (networkManager != null) {
+                    GameMessage msg = new GameMessage(
+                        GameMessage.MessageType.DISCONNECT,
+                        playerId,
+                        "Player left game"
+                    );
+                    msg.setBroadcast(true);
+                    networkManager.send(msg);
+                    networkManager.stop();
+                }
+                
                 MainMenu mainMenu = new MainMenu();
                 try {
                     mainMenu.start(stage);
@@ -1330,7 +1342,10 @@ public class GameBoardView implements GameEventListener {
         switch (event.getType()) {
             case DICE_ROLLED -> {
                 int val = (int) event.getData();
-                 javafx.application.Platform.runLater(() -> animateDiceRoll(val));
+                 javafx.application.Platform.runLater(() -> {
+                     SoundManager.getInstance().playSound("dice.mp3");
+                     animateDiceRoll(val);
+                 });
             }
             case PLAYER_MOVED -> {
                 Player p = (Player) event.getSource();

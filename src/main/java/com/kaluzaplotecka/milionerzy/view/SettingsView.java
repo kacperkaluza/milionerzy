@@ -1,5 +1,6 @@
 package com.kaluzaplotecka.milionerzy.view;
 
+import com.kaluzaplotecka.milionerzy.manager.SoundManager;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
@@ -43,6 +44,13 @@ public class SettingsView {
         Slider volumeSlider = new Slider(0, 100, 50);
         volumeSlider.setMaxWidth(300);
         volumeBox.getChildren().addAll(volumeLabel, volumeSlider);
+
+        // Initialize slider and add listener
+        SoundManager soundManager = SoundManager.getInstance();
+        volumeSlider.setValue(soundManager.getVolume() * 100);
+        volumeSlider.valueProperty().addListener((obs, oldVal, newVal) -> {
+            soundManager.setVolume(newVal.doubleValue() / 100.0);
+        });
 
         Button backBtn = new Button("Powrót");
         backBtn.setStyle(BUTTON_STYLE);

@@ -2,6 +2,7 @@ module com.kaluzaplotecka.milionerzy {
     requires javafx.controls;
     requires javafx.fxml;
     requires transitive javafx.graphics;
+    requires javafx.media;
 
 
     requires com.almasb.fxgl.all;

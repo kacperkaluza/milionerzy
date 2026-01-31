@@ -72,6 +72,7 @@ public class GameState implements Serializable {
             return;
         }
 
+
         int steps = rollDice();
         
         fireEvent(new GameEvent(
