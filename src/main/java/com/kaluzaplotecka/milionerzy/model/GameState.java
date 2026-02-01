@@ -25,7 +25,7 @@ public class GameState implements Serializable {
     private static final long serialVersionUID = 1L;
     
     // Core Data
-    Board board;
+    private Board board;
     Deque<EventCard> chanceDeck;
     Deque<EventCard> communityChestDeck;
     public static final int PASS_START_REWARD = 200;
@@ -39,15 +39,15 @@ public class GameState implements Serializable {
     // Old fields for backward compatibility with pre-refactoring saves
     // These will be null in new saves, but may contain data in old saves
     @Deprecated
-    private List<Player> players;
+    private transient List<Player> players;
     @Deprecated
-    private Integer currentPlayerIndex;
+    private transient Integer currentPlayerIndex;
     @Deprecated
-    private Integer roundNumber;
+    private transient Integer roundNumber;
     @Deprecated
-    private TradeOffer pendingTrade;
+    private transient TradeOffer pendingTrade;
     @Deprecated
-    private Auction currentAuction;
+    private transient Auction currentAuction;
 
 
     public GameState(Board board, List<Player> players){
@@ -501,20 +501,25 @@ public class GameState implements Serializable {
     private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
         in.defaultReadObject();
         
-        // If managers are null, we're loading an old save file
-        if (turnManager == null && players != null) {
-            // Migrate old turn data to TurnManager
-            turnManager = new TurnManager(players);
-            // Restore current player index if available
-            if (currentPlayerIndex != null && currentPlayerIndex >= 0 && currentPlayerIndex < players.size()) {
-                Player targetPlayer = players.get(currentPlayerIndex);
-                if (targetPlayer != null) {
-                    turnManager.setCurrentPlayerById(targetPlayer.getId());
+        // If managers are null, we're loading an old save file or a corrupted/partial save
+        if (turnManager == null) {
+            if (players != null) {
+                // Migrate old turn data to TurnManager
+                turnManager = new TurnManager(players);
+                // Restore current player index if available
+                if (currentPlayerIndex != null && currentPlayerIndex >= 0 && currentPlayerIndex < players.size()) {
+                    Player targetPlayer = players.get(currentPlayerIndex);
+                    if (targetPlayer != null) {
+                        turnManager.setCurrentPlayerById(targetPlayer.getId());
+                    }
                 }
-            }
-            // Restore round number if available
-            if (roundNumber != null && roundNumber >= 0) {
-                turnManager.setRoundNumber(roundNumber);
+                // Restore round number if available
+                if (roundNumber != null && roundNumber >= 0) {
+                    turnManager.setRoundNumber(roundNumber);
+                }
+            } else {
+                // Fallback: create an empty TurnManager when no player data is available
+                turnManager = new TurnManager(new ArrayList<>());
             }
         }
         

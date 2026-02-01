@@ -104,15 +104,27 @@ public class PropertyManager implements Serializable {
     }
     
     /**
-     * Sets the pending trade. Package-private for use by GameState when migrating old saves.
+     * Sets the pending trade. Used by GameState when migrating old saves.
      * @param trade the trade offer to set as pending
      */
-    void setPendingTrade(TradeOffer trade) {
+    public void setPendingTrade(TradeOffer trade) {
         this.pendingTrade = trade;
     }
     
     // === AUCTIONS ===
 
+    /**
+     * Starts an auction for the given property.
+     * 
+     * Note: The auction is created with a snapshot of the current player list.
+     * If a player goes bankrupt during the auction, they will be removed from the game
+     * but will still appear in the auction's participant list. The Auction class
+     * should handle this by checking player validity before accepting bids.
+     * 
+     * @param game the game state
+     * @param property the property to auction
+     * @return true if the auction was started, false otherwise
+     */
     public boolean startAuction(GameState game, PropertyTile property) {
         if (property == null) return false;
         if (property.isOwned()) return false;
@@ -129,6 +141,10 @@ public class PropertyManager implements Serializable {
         return true;
     }
 
+    /**
+     * Sets the current auction. Used by GameState when migrating old saves.
+     * @param auction the auction to set as current
+     */
     public void setCurrentAuction(Auction auction) {
         this.currentAuction = auction;
     }
