@@ -166,9 +166,9 @@ public class DiceComponent extends VBox {
             }
             
             // Split sum into two dice values (arbitrary but valid for the same sum)
-            // Ensures both dice show values between 1-6
-            int dice1 = Math.max(1, Math.min(6, sum / 2));
-            int dice2 = Math.max(1, Math.min(6, sum - dice1));
+            // Ensures both dice show values between 1-6 and sum is preserved
+            int dice1 = Math.max(1, Math.min(6, sum - 1));
+            int dice2 = sum - dice1;
             final int finalValue = (i == 0) ? dice1 : dice2;
             timeline.setOnFinished(e -> diceLabel.setText(getDiceSymbol(finalValue)));
             timeline.play();

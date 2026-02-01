@@ -387,7 +387,8 @@ public class GameView implements GameEventListener {
                 try {
                     price = Integer.parseInt(data[3]);
                 } catch (NumberFormatException e) {
-                    price = 0;
+                    System.err.println("Warning: Invalid price format for property '" + name + "' at position " + pos + ". Using default value 100.");
+                    price = 100; // Default property price
                 }
                 return new PropertyTile(pos, name, price, price / 10);
             case "chance": return new ChanceTile(pos, name);
