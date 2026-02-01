@@ -23,3 +23,7 @@ tmp/
 
 # Misc
 .env
+
+# Documentation
+PROJECT_STRUCTURE.md
+ROADMAP.md
