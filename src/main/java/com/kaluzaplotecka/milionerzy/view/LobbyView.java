@@ -488,12 +488,7 @@ public class LobbyView {
                 // Dla klienta - łączenie z hostem w osobnym wątku, aby nie blokować UI
                 statusLabel.setText("⏳ Łączenie z " + (hostAddress != null ? hostAddress : "localhost") + "...");
                 
-                // Interrupt any existing connection thread
-                if (connectionThread != null && connectionThread.isAlive()) {
-                    connectionThread.interrupt();
-                }
-                
-                connectionThread = new Thread(() -> {
+                new Thread(() -> {
                     try {
                         String targetHost = (hostAddress != null && !hostAddress.isEmpty()) ? hostAddress : "localhost";
                         networkManager.connectToHost(targetHost, NetworkManager.DEFAULT_PORT, playerName);
@@ -507,10 +502,7 @@ public class LobbyView {
                             statusLabel.setTextFill(Color.web("#e74c3c"));
                         });
                     }
-                });
-                connectionThread.setDaemon(true); // Daemon thread won't prevent app shutdown
-                connectionThread.setName("LobbyClientConnection");
-                connectionThread.start();
+                }).start();
             }
         } catch (IOException e) {
             Platform.runLater(() -> {
@@ -840,8 +832,8 @@ public class LobbyView {
                     }
                 }
             }
-            // Fallback when no suitable IPv4 address is found
-            return "Brak dostępnego adresu IPv4";
+            // Fallback
+            return java.net.InetAddress.getLocalHost().getHostAddress();
         } catch (Exception e) {
             return "Nieznane (sprawdź ustawienia sieci)";
         }

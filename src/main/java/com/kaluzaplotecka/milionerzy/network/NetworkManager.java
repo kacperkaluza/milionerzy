@@ -198,8 +198,12 @@ public class NetworkManager {
             }
         } else if (mode == Mode.CLIENT) {
             try {
-                clientOut.writeObject(message);
-                clientOut.flush();
+                if (clientOut != null) {
+                    clientOut.writeObject(message);
+                    clientOut.flush();
+                } else {
+                    System.err.println("Błąd wysyłania: brak połączenia (clientOut is null)");
+                }
             } catch (IOException e) {
                 System.err.println("Błąd wysyłania: " + e.getMessage());
             }
