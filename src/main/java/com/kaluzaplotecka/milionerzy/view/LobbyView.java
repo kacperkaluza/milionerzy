@@ -119,6 +119,9 @@ public class LobbyView {
         "-fx-padding: 10 15; " +
         "-fx-font-size: 14px;";
 
+
+    private String hostAddress; // Added field to store host address
+
     /**
      * Konstruktor dla trybu HOST (tworzenie pokoju).
      */
@@ -139,6 +142,7 @@ public class LobbyView {
         this.isHost = false;
         this.playerName = playerName;
         this.roomCode = roomCode;
+        this.hostAddress = hostAddress; // Store the provided host address
         this.onBack = onBack;
         this.playerId = UUID.randomUUID().toString().substring(0, 8);
     }
@@ -349,6 +353,26 @@ public class LobbyView {
         hintLabel.setTextFill(Color.web("#95a5a6"));
         
         card.getChildren().addAll(titleLabel, codeBox, hintLabel);
+
+        // Wyświetlanie IP hosta (tylko dla hosta)
+        if (isHost) {
+            String ipAddress = getRealIpAddress();
+            
+            Label ipLabel = new Label("Twój Local IP: " + ipAddress);
+            ipLabel.setFont(Font.font("System", FontWeight.BOLD, 14));
+            ipLabel.setTextFill(Color.web("#2d3436"));
+            ipLabel.setStyle("-fx-background-color: #dfe6e9; -fx-padding: 5 10; -fx-background-radius: 5;");
+            
+            // Add tooltip explaining what this is
+            Tooltip tooltip = new Tooltip("Podaj ten adres innym graczom, aby mogli dołączyć (muszą być w tej samej sieci Wi-Fi/LAN)");
+            ipLabel.setTooltip(tooltip);
+            
+            VBox ipBox = new VBox(5);
+            ipBox.setAlignment(Pos.CENTER);
+            ipBox.getChildren().add(ipLabel);
+            
+            card.getChildren().add(ipBox);
+        }
         
         return card;
     }
@@ -460,18 +484,28 @@ public class LobbyView {
                     updateStartButton();
                 });
             } else {
-                // Dla klienta - łączenie z hostem
-                // W tym miejscu trzeba by podać adres hosta
-                // Na razie localhost do testów
-                networkManager.connectToHost("localhost", NetworkManager.DEFAULT_PORT, playerName);
-                Platform.runLater(() -> {
-                    statusLabel.setText("✅ Połączono z hostem");
-                    statusLabel.setTextFill(Color.web("#27ae60"));
-                });
+                // Dla klienta - łączenie z hostem w osobnym wątku, aby nie blokować UI
+                statusLabel.setText("⏳ Łączenie z " + (hostAddress != null ? hostAddress : "localhost") + "...");
+                
+                new Thread(() -> {
+                    try {
+                        String targetHost = (hostAddress != null && !hostAddress.isEmpty()) ? hostAddress : "localhost";
+                        networkManager.connectToHost(targetHost, NetworkManager.DEFAULT_PORT, playerName);
+                        Platform.runLater(() -> {
+                            statusLabel.setText("✅ Połączono z hostem: " + targetHost);
+                            statusLabel.setTextFill(Color.web("#27ae60"));
+                        });
+                    } catch (IOException e) {
+                        Platform.runLater(() -> {
+                            statusLabel.setText("❌ Błąd: " + e.getMessage());
+                            statusLabel.setTextFill(Color.web("#e74c3c"));
+                        });
+                    }
+                }).start();
             }
         } catch (IOException e) {
             Platform.runLater(() -> {
-                statusLabel.setText("❌ Błąd: " + e.getMessage());
+                statusLabel.setText("❌ Błąd hosta: " + e.getMessage());
                 statusLabel.setTextFill(Color.web("#e74c3c"));
             });
         }
@@ -738,7 +772,7 @@ public class LobbyView {
 
         // Przejście do widoku gry
         Platform.runLater(() -> {
-            GameBoardView boardView;
+            GameView boardView;
             
             if (loadedGameState != null) {
                 // Mapowanie nowych graczy z lobby na graczy z wczytanego stanu
@@ -761,11 +795,11 @@ public class LobbyView {
                 }
                 
                 // Użyj graczy z wczytanego stanu (z zaktualizowanymi ID)
-                boardView = new GameBoardView(stage, savedPlayers, networkManager, playerId);
+                boardView = new GameView(stage, savedPlayers, networkManager, playerId);
                 boardView.setGameState(loadedGameState);
             } else {
                 // Normalna gra - nowi gracze
-                boardView = new GameBoardView(stage, gamePlayers, networkManager, playerId);
+                boardView = new GameView(stage, gamePlayers, networkManager, playerId);
             }
             
             boardView.show();
@@ -778,6 +812,30 @@ public class LobbyView {
         fade.setFromValue(0);
         fade.setToValue(1);
         fade.play();
+    }
+    
+    private String getRealIpAddress() {
+        try {
+            java.util.Enumeration<java.net.NetworkInterface> interfaces = java.net.NetworkInterface.getNetworkInterfaces();
+            while (interfaces.hasMoreElements()) {
+                java.net.NetworkInterface iface = interfaces.nextElement();
+                // Skip loopback and down interfaces
+                if (iface.isLoopback() || !iface.isUp()) continue;
+                
+                java.util.Enumeration<java.net.InetAddress> addresses = iface.getInetAddresses();
+                while (addresses.hasMoreElements()) {
+                    java.net.InetAddress addr = addresses.nextElement();
+                    // We want IPv4 and not loopback
+                    if (addr instanceof java.net.Inet4Address && !addr.isLoopbackAddress()) {
+                        return addr.getHostAddress();
+                    }
+                }
+            }
+            // Fallback
+            return java.net.InetAddress.getLocalHost().getHostAddress();
+        } catch (Exception e) {
+            return "Nieznane (sprawdź ustawienia sieci)";
+        }
     }
     
     // === KLASA WEWNĘTRZNA ===

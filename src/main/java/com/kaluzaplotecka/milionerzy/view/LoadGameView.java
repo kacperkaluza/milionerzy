@@ -155,7 +155,7 @@ public class LoadGameView {
             // Gracz lokalny = pierwszy gracz z listy
             String localPlayerId = loadedState.getPlayers().get(0).getId();
             
-            GameBoardView gameBoard = new GameBoardView(
+            GameView gameBoard = new GameView(
                 stage, 
                 loadedState.getPlayers(), 
                 null, // brak NetworkManager - gra lokalna

@@ -27,11 +27,10 @@ import static org.testfx.matcher.control.LabeledMatchers.hasText;
 public class GameBoardTest extends ApplicationTest {
 
     private GameBoardView gameBoardView;
-    private List<Player> players;
 
     @Override
     public void start(Stage stage) {
-        players = new ArrayList<>();
+        List<Player> players = new ArrayList<>();
         players.add(new Player("TestPlayer1", "TestPlayer1", 1500));
         players.add(new Player("TestPlayer2", "TestPlayer2", 1500));
         
@@ -156,6 +155,9 @@ public class GameBoardTest extends ApplicationTest {
         
         // Szukaj przycisku pauzy (⏸)
         Button pauseButton = lookup("⏸").queryButton();
+        
+        // Note: The original test used emoji which might be tricky if not used in View.
+        // Assuming view has "⏸" text.
         
         assertNotNull(pauseButton, "Przycisk pauzy powinien istnieć");
         assertTrue(pauseButton.isVisible(), "Przycisk pauzy powinien być widoczny");
