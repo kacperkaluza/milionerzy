@@ -505,18 +505,17 @@ public class GameState implements Serializable {
         if (turnManager == null && players != null) {
             // Migrate old turn data to TurnManager
             turnManager = new TurnManager(players);
-            // Note: We can't directly set currentPlayerIndex in TurnManager without reflection
-            // or adding a setter. For now, we'll need to advance turns to get to the right player.
+            // Restore current player index if available
             if (currentPlayerIndex != null && currentPlayerIndex >= 0 && currentPlayerIndex < players.size()) {
-                // Use setCurrentPlayerById if we can get the player
                 Player targetPlayer = players.get(currentPlayerIndex);
                 if (targetPlayer != null) {
                     turnManager.setCurrentPlayerById(targetPlayer.getId());
                 }
             }
-            // Note: roundNumber migration is lost in the old design since TurnManager
-            // doesn't have a setter for it. This is acceptable as round number is mostly
-            // informational and will self-correct as the game progresses.
+            // Restore round number if available
+            if (roundNumber != null && roundNumber >= 0) {
+                turnManager.setRoundNumber(roundNumber);
+            }
         }
         
         // If movementManager is null, create it

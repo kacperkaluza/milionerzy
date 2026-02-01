@@ -47,6 +47,14 @@ public class TurnManager implements Serializable {
     }
     
     /**
+     * Sets the round number. Package-private for use by GameState when migrating old saves.
+     * @param roundNumber the round number to set
+     */
+    void setRoundNumber(int roundNumber) {
+        this.roundNumber = roundNumber;
+    }
+    
+    /**
      * Sets the current player by their ID. Used by clients to synchronize turn state
      * when receiving turn changes from the host.
      * @param playerId the ID of the player to set as current
@@ -55,7 +63,7 @@ public class TurnManager implements Serializable {
     public boolean setCurrentPlayerById(String playerId) {
         if (playerId == null) return false;
         for (int i = 0; i < players.size(); i++) {
-            if (players.get(i).getId().equals(playerId)) {
+            if (playerId.equals(players.get(i).getId())) {
                 currentPlayerIndex = i;
                 return true;
             }
