@@ -518,7 +518,10 @@ public class GameState implements Serializable {
                     turnManager.setRoundNumber(roundNumber);
                 }
             } else {
-                // Fallback: create an empty TurnManager when no player data is available
+                // Fallback: create an empty TurnManager when no player data is available.
+                // This can occur with corrupted save files or incomplete deserialization.
+                // The resulting game state will be non-functional and should be handled
+                // appropriately by the loading code.
                 turnManager = new TurnManager(new ArrayList<>());
             }
         }
