@@ -485,17 +485,28 @@ public class LobbyView {
                     updateStartButton();
                 });
             } else {
-                // Dla klienta - łączenie z hostem
-                String targetHost = (hostAddress != null && !hostAddress.isEmpty()) ? hostAddress : "localhost";
-                networkManager.connectToHost(targetHost, NetworkManager.DEFAULT_PORT, playerName);
-                Platform.runLater(() -> {
-                    statusLabel.setText("✅ Połączono z hostem: " + targetHost);
-                    statusLabel.setTextFill(Color.web("#27ae60"));
-                });
+                // Dla klienta - łączenie z hostem w osobnym wątku, aby nie blokować UI
+                statusLabel.setText("⏳ Łączenie z " + (hostAddress != null ? hostAddress : "localhost") + "...");
+                
+                new Thread(() -> {
+                    try {
+                        String targetHost = (hostAddress != null && !hostAddress.isEmpty()) ? hostAddress : "localhost";
+                        networkManager.connectToHost(targetHost, NetworkManager.DEFAULT_PORT, playerName);
+                        Platform.runLater(() -> {
+                            statusLabel.setText("✅ Połączono z hostem: " + targetHost);
+                            statusLabel.setTextFill(Color.web("#27ae60"));
+                        });
+                    } catch (IOException e) {
+                        Platform.runLater(() -> {
+                            statusLabel.setText("❌ Błąd: " + e.getMessage());
+                            statusLabel.setTextFill(Color.web("#e74c3c"));
+                        });
+                    }
+                }).start();
             }
         } catch (IOException e) {
             Platform.runLater(() -> {
-                statusLabel.setText("❌ Błąd: " + e.getMessage());
+                statusLabel.setText("❌ Błąd hosta: " + e.getMessage());
                 statusLabel.setTextFill(Color.web("#e74c3c"));
             });
         }
