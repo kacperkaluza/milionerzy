@@ -84,7 +84,6 @@ public class NetworkGameEventListener implements GameEventListener {
             );
             syncMsg.setBroadcast(true);
             networkManager.send(syncMsg);
-            System.out.println("[DEBUG] Broadcasting full GAME_STATE_SYNC to all clients");
         }
     }
 

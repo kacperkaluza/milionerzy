@@ -119,6 +119,9 @@ public class LobbyView {
         "-fx-padding: 10 15; " +
         "-fx-font-size: 14px;";
 
+
+    private String hostAddress; // Added field to store host address
+
     /**
      * Konstruktor dla trybu HOST (tworzenie pokoju).
      */
@@ -139,6 +142,7 @@ public class LobbyView {
         this.isHost = false;
         this.playerName = playerName;
         this.roomCode = roomCode;
+        this.hostAddress = hostAddress; // Store the provided host address
         this.onBack = onBack;
         this.playerId = UUID.randomUUID().toString().substring(0, 8);
     }
@@ -349,6 +353,27 @@ public class LobbyView {
         hintLabel.setTextFill(Color.web("#95a5a6"));
         
         card.getChildren().addAll(titleLabel, codeBox, hintLabel);
+
+        // Wyświetlanie IP hosta (tylko dla hosta)
+        if (isHost) {
+            String ipAddress = "Nieznane";
+            try {
+                ipAddress = java.net.InetAddress.getLocalHost().getHostAddress();
+            } catch (java.net.UnknownHostException e) {
+                // Ignore
+            }
+            
+            Label ipLabel = new Label("Twój adres IP: " + ipAddress);
+            ipLabel.setFont(Font.font("System", FontWeight.BOLD, 14));
+            ipLabel.setTextFill(Color.web("#2d3436"));
+            ipLabel.setStyle("-fx-background-color: #dfe6e9; -fx-padding: 5 10; -fx-background-radius: 5;");
+            
+            VBox ipBox = new VBox(5);
+            ipBox.setAlignment(Pos.CENTER);
+            ipBox.getChildren().add(ipLabel);
+            
+            card.getChildren().add(ipBox);
+        }
         
         return card;
     }
@@ -461,11 +486,10 @@ public class LobbyView {
                 });
             } else {
                 // Dla klienta - łączenie z hostem
-                // W tym miejscu trzeba by podać adres hosta
-                // Na razie localhost do testów
-                networkManager.connectToHost("localhost", NetworkManager.DEFAULT_PORT, playerName);
+                String targetHost = (hostAddress != null && !hostAddress.isEmpty()) ? hostAddress : "localhost";
+                networkManager.connectToHost(targetHost, NetworkManager.DEFAULT_PORT, playerName);
                 Platform.runLater(() -> {
-                    statusLabel.setText("✅ Połączono z hostem");
+                    statusLabel.setText("✅ Połączono z hostem: " + targetHost);
                     statusLabel.setTextFill(Color.web("#27ae60"));
                 });
             }
