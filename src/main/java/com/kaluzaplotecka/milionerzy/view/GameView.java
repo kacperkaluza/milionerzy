@@ -106,7 +106,12 @@ public class GameView implements GameEventListener {
             if (networkManager != null) {
                 networkManager.send(new GameMessage(GameMessage.MessageType.AUCTION_PASS, playerId));
             } else if (gameState != null) {
-                gameState.passAuction();
+                // Local game logic
+                Player p = gameState.getPlayers().stream()
+                     .filter(pl -> pl.getId().equals(playerId))
+                     .findFirst()
+                     .orElse(null);
+                 if (p != null) gameState.passAuction(p);
             }
         });
     }
@@ -199,8 +204,14 @@ public class GameView implements GameEventListener {
                      .filter(p -> p.getId().equals(playerId))
                      .findFirst()
                      .orElse(null);
-                 if (currentPlayer != null) {
-                     gameState.buyProperty(currentPlayer, tile);
+                 if (currentPlayer != null && gameState.buyCurrentProperty()) {
+                     gameState.fireEvent(new GameEvent(
+                         GameEvent.Type.PROPERTY_BOUGHT,
+                         currentPlayer,
+                         tile,
+                         currentPlayer.getUsername() + " kupił " + tile.getCity()
+                     ));
+                     gameState.nextTurn();
                  }
              }
          } else {
