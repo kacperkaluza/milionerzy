@@ -94,7 +94,7 @@ public class NetworkStatusBox extends VBox {
         setManaged(false);
     }
     
-    public NetworkStatusBox(com.kaluzaplotecka.milionerzy.network.NetworkManager networkManager, String playerId) {
+    public NetworkStatusBox(com.kaluzaplotecka.milionerzy.network.NetworkManager networkManager) {
         this();
         if (networkManager != null) {
             networkManager.setSendingCallback(msg -> 

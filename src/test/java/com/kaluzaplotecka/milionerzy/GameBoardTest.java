@@ -148,9 +148,6 @@ public class GameBoardTest extends ApplicationTest {
         // Szukaj przycisku pauzy (⏸)
         Button pauseButton = lookup("⏸").queryButton();
         
-        // Note: The original test used emoji which might be tricky if not used in View.
-        // Assuming view has "⏸" text.
-        
         assertNotNull(pauseButton, "Przycisk pauzy powinien istnieć");
         assertTrue(pauseButton.isVisible(), "Przycisk pauzy powinien być widoczny");
     }
