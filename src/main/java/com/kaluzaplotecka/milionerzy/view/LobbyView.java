@@ -356,17 +356,16 @@ public class LobbyView {
 
         // Wyświetlanie IP hosta (tylko dla hosta)
         if (isHost) {
-            String ipAddress = "Nieznane";
-            try {
-                ipAddress = java.net.InetAddress.getLocalHost().getHostAddress();
-            } catch (java.net.UnknownHostException e) {
-                // Ignore
-            }
+            String ipAddress = getRealIpAddress();
             
-            Label ipLabel = new Label("Twój adres IP: " + ipAddress);
+            Label ipLabel = new Label("Twój Local IP: " + ipAddress);
             ipLabel.setFont(Font.font("System", FontWeight.BOLD, 14));
             ipLabel.setTextFill(Color.web("#2d3436"));
             ipLabel.setStyle("-fx-background-color: #dfe6e9; -fx-padding: 5 10; -fx-background-radius: 5;");
+            
+            // Add tooltip explaining what this is
+            Tooltip tooltip = new Tooltip("Podaj ten adres innym graczom, aby mogli dołączyć (muszą być w tej samej sieci Wi-Fi/LAN)");
+            ipLabel.setTooltip(tooltip);
             
             VBox ipBox = new VBox(5);
             ipBox.setAlignment(Pos.CENTER);
@@ -813,6 +812,30 @@ public class LobbyView {
         fade.setFromValue(0);
         fade.setToValue(1);
         fade.play();
+    }
+    
+    private String getRealIpAddress() {
+        try {
+            java.util.Enumeration<java.net.NetworkInterface> interfaces = java.net.NetworkInterface.getNetworkInterfaces();
+            while (interfaces.hasMoreElements()) {
+                java.net.NetworkInterface iface = interfaces.nextElement();
+                // Skip loopback and down interfaces
+                if (iface.isLoopback() || !iface.isUp()) continue;
+                
+                java.util.Enumeration<java.net.InetAddress> addresses = iface.getInetAddresses();
+                while (addresses.hasMoreElements()) {
+                    java.net.InetAddress addr = addresses.nextElement();
+                    // We want IPv4 and not loopback
+                    if (addr instanceof java.net.Inet4Address && !addr.isLoopbackAddress()) {
+                        return addr.getHostAddress();
+                    }
+                }
+            }
+            // Fallback
+            return java.net.InetAddress.getLocalHost().getHostAddress();
+        } catch (Exception e) {
+            return "Nieznane (sprawdź ustawienia sieci)";
+        }
     }
     
     // === KLASA WEWNĘTRZNA ===
