@@ -2,6 +2,8 @@ package com.kaluzaplotecka.milionerzy.model;
 
 import com.kaluzaplotecka.milionerzy.network.GameMessage;
 
+import java.io.IOException;
+import java.io.ObjectInputStream;
 import java.io.Serializable;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -33,6 +35,19 @@ public class GameState implements Serializable {
     private MovementManager movementManager;
     private BankManager bankManager;
     private PropertyManager propertyManager;
+
+    // Old fields for backward compatibility with pre-refactoring saves
+    // These will be null in new saves, but may contain data in old saves
+    @Deprecated
+    private List<Player> players;
+    @Deprecated
+    private Integer currentPlayerIndex;
+    @Deprecated
+    private Integer roundNumber;
+    @Deprecated
+    private TradeOffer pendingTrade;
+    @Deprecated
+    private Auction currentAuction;
 
 
     public GameState(Board board, List<Player> players){
@@ -448,15 +463,14 @@ public class GameState implements Serializable {
             case NEXT_TURN -> {
                 if (!isHost) {
                      String newCurrentPlayerId = msg.getSenderId();
-                     List<Player> players = turnManager.getPlayers();
-                     for(int i=0; i<players.size(); i++) {
-                         if (players.get(i).getId().equals(newCurrentPlayerId)) {
+                     if (turnManager.setCurrentPlayerById(newCurrentPlayerId)) {
+                         Player currentPlayer = turnManager.getCurrentPlayer();
+                         if (currentPlayer != null) {
                              fireEvent(new GameEvent(
                                 GameEvent.Type.TURN_STARTED,
-                                players.get(i),
-                                "Tura gracza " + players.get(i).getUsername()
+                                currentPlayer,
+                                "Tura gracza " + currentPlayer.getUsername()
                             ));
-                             break;
                          }
                      }
                 }
@@ -477,5 +491,53 @@ public class GameState implements Serializable {
     
     public int getRoundNumber() {
         return turnManager.getRoundNumber();
+    }
+    
+    /**
+     * Custom deserialization to migrate old save files to the new manager structure.
+     * Old saves had players, currentPlayerIndex, roundNumber, pendingTrade, and currentAuction
+     * directly in GameState. New saves have these in separate manager objects.
+     */
+    private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
+        in.defaultReadObject();
+        
+        // If managers are null, we're loading an old save file
+        if (turnManager == null && players != null) {
+            // Migrate old turn data to TurnManager
+            turnManager = new TurnManager(players);
+            // Restore current player index if available
+            if (currentPlayerIndex != null && currentPlayerIndex >= 0 && currentPlayerIndex < players.size()) {
+                Player targetPlayer = players.get(currentPlayerIndex);
+                if (targetPlayer != null) {
+                    turnManager.setCurrentPlayerById(targetPlayer.getId());
+                }
+            }
+            // Restore round number if available
+            if (roundNumber != null && roundNumber >= 0) {
+                turnManager.setRoundNumber(roundNumber);
+            }
+        }
+        
+        // If movementManager is null, create it
+        if (movementManager == null) {
+            movementManager = new MovementManager();
+        }
+        
+        // If bankManager is null, create it
+        if (bankManager == null) {
+            bankManager = new BankManager();
+        }
+        
+        // If propertyManager is null, create it and migrate old trade/auction data
+        if (propertyManager == null) {
+            propertyManager = new PropertyManager();
+            // Migrate old trade and auction data if present
+            if (pendingTrade != null) {
+                propertyManager.setPendingTrade(pendingTrade);
+            }
+            if (currentAuction != null) {
+                propertyManager.setCurrentAuction(currentAuction);
+            }
+        }
     }
 }

@@ -103,6 +103,14 @@ public class PropertyManager implements Serializable {
         return pendingTrade;
     }
     
+    /**
+     * Sets the pending trade. Package-private for use by GameState when migrating old saves.
+     * @param trade the trade offer to set as pending
+     */
+    void setPendingTrade(TradeOffer trade) {
+        this.pendingTrade = trade;
+    }
+    
     // === AUCTIONS ===
 
     public boolean startAuction(GameState game, PropertyTile property) {
