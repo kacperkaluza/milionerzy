@@ -25,7 +25,7 @@ public class TurnManager implements Serializable {
     }
     
     public List<Player> getPlayers() {
-        return players;
+        return new ArrayList<>(players);
     }
 
     /**
@@ -44,6 +44,23 @@ public class TurnManager implements Serializable {
 
     public int getRoundNumber() {
         return roundNumber;
+    }
+    
+    /**
+     * Sets the current player by their ID. Used by clients to synchronize turn state
+     * when receiving turn changes from the host.
+     * @param playerId the ID of the player to set as current
+     * @return true if the player was found and set as current, false otherwise
+     */
+    public boolean setCurrentPlayerById(String playerId) {
+        if (playerId == null) return false;
+        for (int i = 0; i < players.size(); i++) {
+            if (players.get(i).getId().equals(playerId)) {
+                currentPlayerIndex = i;
+                return true;
+            }
+        }
+        return false;
     }
     
     public void removePlayer(Player p) {

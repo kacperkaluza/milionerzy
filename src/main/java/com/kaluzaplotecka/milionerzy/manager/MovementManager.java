@@ -52,15 +52,6 @@ public class MovementManager implements Serializable {
         
         movePlayerBy(game, p, steps);
 
-        // BankManager handles bankruptcy check potentially? 
-        // Or GameState facade does it. 
-        // GameState logic had:
-        /*
-        if (p.isBankrupt()){
-            handleBankruptcy(p);
-            return;
-        }
-        */
         if (p.isBankrupt()) {
             game.handleBankruptcy(p);
             return;
