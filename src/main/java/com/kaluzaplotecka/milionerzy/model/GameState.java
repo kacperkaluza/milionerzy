@@ -39,15 +39,15 @@ public class GameState implements Serializable {
     // Old fields for backward compatibility with pre-refactoring saves
     // These will be null in new saves, but may contain data in old saves
     @Deprecated
-    private transient List<Player> players;
+    private List<Player> players;
     @Deprecated
-    private transient Integer currentPlayerIndex;
+    private Integer currentPlayerIndex;
     @Deprecated
-    private transient Integer roundNumber;
+    private Integer roundNumber;
     @Deprecated
-    private transient TradeOffer pendingTrade;
+    private TradeOffer pendingTrade;
     @Deprecated
-    private transient Auction currentAuction;
+    private Auction currentAuction;
 
 
     public GameState(Board board, List<Player> players){
@@ -507,7 +507,7 @@ public class GameState implements Serializable {
             turnManager = new TurnManager(players);
             // Note: We can't directly set currentPlayerIndex in TurnManager without reflection
             // or adding a setter. For now, we'll need to advance turns to get to the right player.
-            if (currentPlayerIndex != null && currentPlayerIndex > 0 && currentPlayerIndex < players.size()) {
+            if (currentPlayerIndex != null && currentPlayerIndex >= 0 && currentPlayerIndex < players.size()) {
                 // Use setCurrentPlayerById if we can get the player
                 Player targetPlayer = players.get(currentPlayerIndex);
                 if (targetPlayer != null) {
@@ -534,17 +534,7 @@ public class GameState implements Serializable {
             propertyManager = new PropertyManager();
             // Migrate old trade and auction data if present
             if (pendingTrade != null) {
-                try {
-                    // Use reflection or propose the trade through the manager
-                    // For simplicity, we'll just set it directly using PropertyManager's method
-                    // Note: This requires the trade to be valid
-                    java.lang.reflect.Field pendingTradeField = PropertyManager.class.getDeclaredField("pendingTrade");
-                    pendingTradeField.setAccessible(true);
-                    pendingTradeField.set(propertyManager, pendingTrade);
-                } catch (NoSuchFieldException | IllegalAccessException e) {
-                    // If reflection fails, the pending trade will be lost
-                    // This is acceptable as trades are typically short-lived
-                }
+                propertyManager.setPendingTrade(pendingTrade);
             }
             if (currentAuction != null) {
                 propertyManager.setCurrentAuction(currentAuction);
