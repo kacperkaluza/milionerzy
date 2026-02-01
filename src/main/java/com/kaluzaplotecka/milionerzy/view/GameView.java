@@ -66,7 +66,7 @@ public class GameView implements GameEventListener {
         
         if (networkManager != null) {
             setupNetworkListeners();
-            this.networkStatusBox = new NetworkStatusBox(networkManager, playerId);
+            this.networkStatusBox = new NetworkStatusBox(networkManager);
         }
         
         // Initialize AuctionComponent
@@ -106,7 +106,7 @@ public class GameView implements GameEventListener {
             if (networkManager != null) {
                 networkManager.send(new GameMessage(GameMessage.MessageType.AUCTION_PASS, playerId));
             } else if (gameState != null) {
-                 // Pas logic if supported
+                gameState.passAuction();
             }
         });
     }
@@ -191,9 +191,25 @@ public class GameView implements GameEventListener {
          
          Optional<ButtonType> result = alert.showAndWait();
          if (result.isPresent() && result.get() == buyButton) {
-             networkManager.send(new GameMessage(GameMessage.MessageType.BUY_PROPERTY, playerId));
+             if (networkManager != null) {
+                 networkManager.send(new GameMessage(GameMessage.MessageType.BUY_PROPERTY, playerId));
+             } else if (gameState != null) {
+                 // Local game: directly update game state
+                 Player currentPlayer = gameState.getPlayers().stream()
+                     .filter(p -> p.getId().equals(playerId))
+                     .findFirst()
+                     .orElse(null);
+                 if (currentPlayer != null) {
+                     gameState.buyProperty(currentPlayer, tile);
+                 }
+             }
          } else {
-             networkManager.send(new GameMessage(GameMessage.MessageType.DECLINE_PURCHASE, playerId));
+             if (networkManager != null) {
+                 networkManager.send(new GameMessage(GameMessage.MessageType.DECLINE_PURCHASE, playerId));
+             } else if (gameState != null) {
+                 // Local game: start auction
+                 gameState.startAuction(tile);
+             }
          }
     }
 
@@ -367,7 +383,12 @@ public class GameView implements GameEventListener {
         String type = data[1];
         switch (type) {
             case "property":
-                int price = Integer.parseInt(data[3]);
+                int price;
+                try {
+                    price = Integer.parseInt(data[3]);
+                } catch (NumberFormatException e) {
+                    price = 0;
+                }
                 return new PropertyTile(pos, name, price, price / 10);
             case "chance": return new ChanceTile(pos, name);
             case "chest": return new CommunityChestTile(pos, name);

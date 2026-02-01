@@ -34,7 +34,7 @@ public class BoardComponent extends StackPane {
     private static final double TILE_WIDTH = 50;
     private static final double TILE_HEIGHT = 75;
 
-    // Tymczasowe przeniesienie definicji
+    // Stała definicja pól planszy
     private static final String[][] BOARD_TILES = {
         // Dolna krawędź (od START w prawo)
         {"START", "corner"},
@@ -114,14 +114,9 @@ public class BoardComponent extends StackPane {
 
         drawBoard();
         
-        this.getChildren().addAll(boardContainer, playerLayer); 
-        // Note: boardContainer contains background and tiles. playerLayer is overlay.
-        // Wait, current structure in GameView put playerLayer INSIDE boardContainer.
-        // Let's stick to that to ensure coordinates match parent.
+        // Add playerLayer on top of the board content, inside boardContainer
         boardContainer.getChildren().add(playerLayer);
-        
-        // Wait, getChildren().addAll(boardContainer) is enough if playerLayer is inside boardContainer.
-        this.getChildren().clear();
+        // BoardComponent contains only the boardContainer
         this.getChildren().add(boardContainer);
         
         initializePawns();
@@ -216,31 +211,37 @@ public class BoardComponent extends StackPane {
         boardContainer.getChildren().add(centerContent);
     }
     
+    private Circle createPawn(Player player, int playerIndex) {
+        String colorHex = switch (playerIndex % 4) {
+            case 0 -> "#667eea";
+            case 1 -> "#e74c3c";
+            case 2 -> "#27ae60";
+            case 3 -> "#f39c12";
+            default -> "black";
+        };
+        
+        Circle pawn = new Circle(10);
+        pawn.setFill(Color.web(colorHex));
+        pawn.setStroke(Color.BLACK);
+        pawn.setStrokeWidth(1);
+        
+        Point2D startPos = getTileCenter(player.getPosition());
+        double offsetX = (playerIndex % 2 == 0 ? -5 : 5);
+        double offsetY = (playerIndex < 2 ? -5 : 5);
+        
+        pawn.setTranslateX(startPos.getX() + offsetX);
+        pawn.setTranslateY(startPos.getY() + offsetY);
+        
+        return pawn;
+    }
+    
     public void initializePawns() {
         playerLayer.getChildren().clear();
         playerPawns.clear();
         
         for (int i = 0; i < players.size(); i++) {
             Player p = players.get(i);
-            String colorHex = switch (i % 4) {
-                case 0 -> "#667eea";
-                case 1 -> "#e74c3c";
-                case 2 -> "#27ae60";
-                case 3 -> "#f39c12";
-                default -> "black";
-            };
-            
-            Circle pawn = new Circle(10);
-            pawn.setFill(Color.web(colorHex));
-            pawn.setStroke(Color.BLACK);
-            pawn.setStrokeWidth(1);
-            
-            Point2D startPos = getTileCenter(p.getPosition());
-            double offsetX = (i % 2 == 0 ? -5 : 5);
-            double offsetY = (i < 2 ? -5 : 5);
-            
-            pawn.setTranslateX(startPos.getX() + offsetX);
-            pawn.setTranslateY(startPos.getY() + offsetY);
+            Circle pawn = createPawn(p, i);
             
             playerPawns.put(p, pawn);
             playerLayer.getChildren().add(pawn);
@@ -260,15 +261,20 @@ public class BoardComponent extends StackPane {
         for (int i = 0; i < currentPlayers.size(); i++) {
             Player p = currentPlayers.get(i);
             Circle existingPawn = null;
+            Player oldPlayerKey = null;
             
             // Szukaj pionka po ID gracza (bo obiekt gracza mógł zostać odtworzony z sieci/zapisu)
             for (var entry : playerPawns.entrySet()) {
                 if (entry.getKey().getId().equals(p.getId())) {
                     existingPawn = entry.getValue();
-                    playerPawns.remove(entry.getKey());
-                    playerPawns.put(p, existingPawn); // Aktualizuj klucz na nowy obiekt gracza
+                    oldPlayerKey = entry.getKey();
                     break;
                 }
+            }
+            
+            if (oldPlayerKey != null && existingPawn != null) {
+                playerPawns.remove(oldPlayerKey);
+                playerPawns.put(p, existingPawn); // Aktualizuj klucz na nowy obiekt gracza
             }
             
             if (existingPawn != null) {
@@ -288,26 +294,7 @@ public class BoardComponent extends StackPane {
                 }
             } else {
                 // Stwórz nowy pionek
-                // Powielona logika tworzenia - warto wydzielić do createPawn w przyszłości
-                String colorHex = switch (i % 4) {
-                    case 0 -> "#667eea";
-                    case 1 -> "#e74c3c";
-                    case 2 -> "#27ae60";
-                    case 3 -> "#f39c12";
-                    default -> "black";
-                };
-                
-                Circle pawn = new Circle(10);
-                pawn.setFill(Color.web(colorHex));
-                pawn.setStroke(Color.BLACK);
-                pawn.setStrokeWidth(1);
-                
-                Point2D startPos = getTileCenter(p.getPosition());
-                double offsetX = (i % 2 == 0 ? -5 : 5);
-                double offsetY = (i < 2 ? -5 : 5);
-                
-                pawn.setTranslateX(startPos.getX() + offsetX);
-                pawn.setTranslateY(startPos.getY() + offsetY);
+                Circle pawn = createPawn(p, i);
                 
                 playerPawns.put(p, pawn);
                 playerLayer.getChildren().add(pawn);
