@@ -1,7 +1,6 @@
-package com.kaluzaplotecka.milionerzy.view;
+package com.kaluzaplotecka.milionerzy.view.components;
 
 import com.kaluzaplotecka.milionerzy.model.Auction;
-import com.kaluzaplotecka.milionerzy.model.Player;
 
 import javafx.geometry.Pos;
 import javafx.scene.control.Button;
@@ -16,7 +15,7 @@ import javafx.scene.effect.DropShadow;
 
 import java.util.function.Consumer;
 
-public class AuctionView extends StackPane {
+public class AuctionComponent extends StackPane {
     
     private final Label titleLabel;
     private final Label priceLabel;
@@ -26,13 +25,12 @@ public class AuctionView extends StackPane {
     private final Button passButton;
     
     private Auction currentAuction;
-    private String localPlayerId;
     
     // Callbacks for actions
     private Consumer<Integer> onBid;
     private Runnable onPass;
 
-    public AuctionView() {
+    public AuctionComponent() {
         // Semi-transparent background
         this.setStyle("-fx-background-color: rgba(0, 0, 0, 0.7);");
         this.setVisible(false);
@@ -74,14 +72,7 @@ public class AuctionView extends StackPane {
         
         bid10Button.setOnAction(e -> {
             if (onBid != null && currentAuction != null) {
-                // Calculate next bid locally or just send increment?
-                // Logic usually requires specific amount.
-                // Model: placeBid(player, amount).
-                // View doesn't know *exact* amount unless it tracks current + increment.
-                // Assuming we track current internal bid.
-                int nextBid = Math.max(currentAuction.getHighestBid(), currentAuction.getMinimumBid()) + (currentAuction.getHighestBid() == 0 ? 0 : 10);
-                // Actually logic in Auction.java: check minimum increment.
-                // Let's assume user wants to bid +10 over current high.
+                // Logic based on previous implementation
                 int base = Math.max(currentAuction.getHighestBid(), currentAuction.getMinimumBid());
                 if (currentAuction.getHighestBid() == 0) base = currentAuction.getMinimumBid(); 
                 else base = currentAuction.getHighestBid() + 10;
@@ -124,9 +115,8 @@ public class AuctionView extends StackPane {
         return btn;
     }
     
-    public void show(Auction auction, String localPlayerId) {
+    public void show(Auction auction) {
         this.currentAuction = auction;
-        this.localPlayerId = localPlayerId;
         updateUI();
         this.setVisible(true);
     }
@@ -152,10 +142,6 @@ public class AuctionView extends StackPane {
         } else {
             leaderLabel.setText("Cena wywoławcza: " + currentAuction.getMinimumBid() + " zł");
         }
-        
-        // Update button states?
-        // Maybe disable if player Money < (Current + 10)
-        // Or if player is passed.
     }
     
     public void setOnBid(Consumer<Integer> onBid) {

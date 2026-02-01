@@ -94,6 +94,23 @@ public class NetworkStatusBox extends VBox {
         setManaged(false);
     }
     
+    public NetworkStatusBox(com.kaluzaplotecka.milionerzy.network.NetworkManager networkManager) {
+        this();
+        if (networkManager != null) {
+            networkManager.setSendingCallback(msg -> 
+                javafx.application.Platform.runLater(() -> showSending(msg.getType().toString())));
+                
+            networkManager.setAckCallback(msg -> 
+                javafx.application.Platform.runLater(() -> showConfirmed(msg.getType().toString())));
+                
+            networkManager.setNackCallback(msg -> 
+                javafx.application.Platform.runLater(() -> showError(msg.getType().toString(), "Błąd wysyłania"))); // Use NACK payload if available?
+                
+            networkManager.setTimeoutCallback(msg -> 
+                javafx.application.Platform.runLater(() -> showTimeout(msg.getType().toString())));
+        }
+    }
+    
     /**
      * Wyświetla status o podanym typie i wiadomości.
      */

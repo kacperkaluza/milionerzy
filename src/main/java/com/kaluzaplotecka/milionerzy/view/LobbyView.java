@@ -42,6 +42,7 @@ public class LobbyView {
     private String playerName;
     private String playerId;
     private GameState loadedGameState; // Wczytany stan gry (do hostowania zapisu)
+    private Thread connectionThread; // Thread for client connection
     
     // UI Components
     private Label playersCountLabel;
@@ -772,7 +773,7 @@ public class LobbyView {
 
         // Przejście do widoku gry
         Platform.runLater(() -> {
-            GameBoardView boardView;
+            GameView boardView;
             
             if (loadedGameState != null) {
                 // Mapowanie nowych graczy z lobby na graczy z wczytanego stanu
@@ -795,11 +796,11 @@ public class LobbyView {
                 }
                 
                 // Użyj graczy z wczytanego stanu (z zaktualizowanymi ID)
-                boardView = new GameBoardView(stage, savedPlayers, networkManager, playerId);
+                boardView = new GameView(stage, savedPlayers, networkManager, playerId);
                 boardView.setGameState(loadedGameState);
             } else {
                 // Normalna gra - nowi gracze
-                boardView = new GameBoardView(stage, gamePlayers, networkManager, playerId);
+                boardView = new GameView(stage, gamePlayers, networkManager, playerId);
             }
             
             boardView.show();
