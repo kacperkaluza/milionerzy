@@ -11,43 +11,56 @@ import java.util.Random;
 
 import com.kaluzaplotecka.milionerzy.events.GameEvent;
 import com.kaluzaplotecka.milionerzy.events.GameEventListener;
+import com.kaluzaplotecka.milionerzy.manager.BankManager;
+import com.kaluzaplotecka.milionerzy.manager.MovementManager;
+import com.kaluzaplotecka.milionerzy.manager.PropertyManager;
+import com.kaluzaplotecka.milionerzy.manager.TurnManager;
 import com.kaluzaplotecka.milionerzy.model.cards.EventCard;
 import com.kaluzaplotecka.milionerzy.model.tiles.PropertyTile;
 import com.kaluzaplotecka.milionerzy.model.tiles.Tile;
 
 public class GameState implements Serializable {
     private static final long serialVersionUID = 1L;
+    
+    // Core Data
     Board board;
-    List<Player> players;
-    int currentPlayerIndex;
     Deque<EventCard> chanceDeck;
     Deque<EventCard> communityChestDeck;
-    int roundNumber;
-    transient Random rand;
     public static final int PASS_START_REWARD = 200;
+
+    // Managers (Facade pattern)
+    private TurnManager turnManager;
+    private MovementManager movementManager;
+    private BankManager bankManager;
+    private PropertyManager propertyManager;
+
 
     public GameState(Board board, List<Player> players){
         this.board = board;
-        this.players = new ArrayList<>(players);
-        this.currentPlayerIndex = 0;
         this.chanceDeck = new ArrayDeque<>();
         this.communityChestDeck = new ArrayDeque<>();
-        this.roundNumber = 0;
-        this.rand = new Random();
+        
+        // Initialize Managers
+        this.turnManager = new TurnManager(players);
+        this.movementManager = new MovementManager();
+        this.bankManager = new BankManager();
+        this.propertyManager = new PropertyManager();
     }
+    
+    // === Getters for Managers (Optional, but useful for deep access if needed) ===
+    public TurnManager getTurnManager() { return turnManager; }
+    public MovementManager getMovementManager() { return movementManager; }
+    public BankManager getBankManager() { return bankManager; }
+    public PropertyManager getPropertyManager() { return propertyManager; }
 
     public Board getBoard(){ return board; }
 
     public Player getCurrentPlayer(){
-        if (players.isEmpty()) return null;
-        return players.get(currentPlayerIndex);
+        return turnManager.getCurrentPlayer();
     }
 
     public int rollDice(){
-        if (rand == null) rand = new Random();  // Reinicjalizuj po deserializacji
-        int d1 = rand.nextInt(6) + 1;
-        int d2 = rand.nextInt(6) + 1;
-        return d1 + d2;
+        return movementManager.rollDice();
     }
 
     /**
@@ -55,50 +68,11 @@ public class GameState implements Serializable {
      * Użyj new Random(seed) dla deterministycznych wyników.
      */
     public void setRandom(Random rand) {
-        this.rand = rand;
+        movementManager.setRandom(rand);
     }
 
-
-
     public void moveCurrentPlayer(){
-        Player p = getCurrentPlayer();
-        if (p == null) return;
-        if (p.isInJail()){
-            p.incrementJailTurns();
-            if (p.getJailTurns() >= 3){
-                p.releaseFromJail();
-            }
-            nextTurn();
-            return;
-        }
-
-
-        int steps = rollDice();
-        
-        fireEvent(new GameEvent(
-            GameEvent.Type.DICE_ROLLED,
-            null,
-            steps,
-            "Wylosowano: " + steps
-        ));
-        
-        movePlayerBy(p, steps);
-
-        if (p.isBankrupt()){
-            handleBankruptcy(p);
-            return;
-        }
-
-        // Sprawdź czy gracz wylądował na nieruchomości do kupienia
-        // Jeśli tak, NIE zmieniaj tury - czekaj na decyzję gracza
-        Tile currentTile = getCurrentTile();
-        if (currentTile instanceof PropertyTile pt && !pt.isOwned()) {
-            // Gracz musi podjąć decyzję - nie zmieniaj tury automatycznie
-            return;
-        }
-        
-        // Jeśli nie ma nic do zrobienia, zmień turę
-        nextTurn();
+        movementManager.moveCurrentPlayer(this);
     }
 
     /**
@@ -106,45 +80,12 @@ public class GameState implements Serializable {
      * This is testable because it accepts explicit steps.
      */
     public void movePlayerBy(Player p, int steps){
-        if (p == null) return;
-        int oldPos = p.getPosition();
-        int boardSize = board.size();
-        if (boardSize <= 0) return;
-
-        int rawNew = oldPos + steps;
-        boolean passedStart = rawNew >= boardSize;
-
-        p.moveBy(steps, board);
-        
-        fireEvent(new GameEvent(
-            GameEvent.Type.PLAYER_MOVED,
-            p,
-            steps, // Pass steps as data to know how many fields to animate if needed
-            p.getUsername() + " przeszedł " + steps + " pól"
-        ));
-
-        if (passedStart){
-            p.addMoney(PASS_START_REWARD);
-            fireEvent(new GameEvent(
-                GameEvent.Type.MONEY_CHANGED,
-                p,
-                PASS_START_REWARD,
-                p.getUsername() + " przeszedł Start (+200)"
-            ));
-        }
-
-        Tile t = board.getTile(p.getPosition());
-        if (t != null) t.onLand(this, p);
-
-        if (p.isBankrupt()){
-            handleBankruptcy(p);
-        }
+        movementManager.movePlayerBy(this, p, steps);
     }
 
     public void nextTurn(){
-        if (players.isEmpty()) return;
-        currentPlayerIndex = (currentPlayerIndex + 1) % players.size();
-        if (currentPlayerIndex == 0) roundNumber++;
+        turnManager.nextTurn();
+        // Round change handled within turnManager, we can check getRoundNumber() if needed.
         
         fireEvent(new GameEvent(
             GameEvent.Type.TURN_STARTED,
@@ -154,32 +95,16 @@ public class GameState implements Serializable {
     }
 
     public void handleBankruptcy(Player p){
-        for (PropertyTile prop : new ArrayList<>(p.getOwnedProperties())){
-            prop.setOwner(null);
-            p.removeProperty(prop);
-        }
-
-        int removedIndex = players.indexOf(p);
-        if (removedIndex >= 0){
-            players.remove(removedIndex);
-            if (removedIndex <= currentPlayerIndex && currentPlayerIndex > 0) {
-                currentPlayerIndex--;
-            }
-            if (players.isEmpty()) currentPlayerIndex = 0;
-            else currentPlayerIndex = currentPlayerIndex % players.size();
-        }
+        bankManager.handleBankruptcy(this, p);
     }
 
     public boolean isGameOver(){
-        return players.size() <= 1;
+        return turnManager.isGameOver();
     }
     
     public Player getWinner(){
-        if (players.isEmpty()) return null;
-        return players.get(0);
+        return turnManager.getWinner();
     }
-
-
 
     /**
      * Return the tile the current player is standing on, or null.
@@ -195,13 +120,7 @@ public class GameState implements Serializable {
      * This does not modify game state.
      */
     public boolean canCurrentPlayerBuy(){
-        Player p = getCurrentPlayer();
-        if (p == null) return false;
-        Tile t = getCurrentTile();
-        if (!(t instanceof PropertyTile)) return false;
-        PropertyTile prop = (PropertyTile) t;
-        if (prop.isOwned()) return false;
-        return p.getMoney() >= prop.getPrice();
+        return propertyManager.canCurrentPlayerBuy(this);
     }
 
     /**
@@ -209,15 +128,20 @@ public class GameState implements Serializable {
      * UI should call this when the player chooses to buy.
      */
     public boolean buyCurrentProperty(){
-        Player p = getCurrentPlayer();
-        if (p == null) return false;
-        Tile t = getCurrentTile();
-        if (!(t instanceof PropertyTile)) {
-            return false;
+        boolean success = propertyManager.buyCurrentProperty(this);
+        if (success) {
+            Player p = getCurrentPlayer();
+             fireEvent(new GameEvent(
+                GameEvent.Type.PROPERTY_BOUGHT,
+                p,
+                getCurrentTile(),
+                p.getUsername() + " kupił " + ((PropertyTile)getCurrentTile()).getCity()
+            ));
+            // Implicitly logic might expect turn change after buy, 
+            // but original buyCurrentProperty didn't do it. 
+            // Host usually calls nextTurn after processing BUY_PROPERTY message.
         }
-        PropertyTile prop = (PropertyTile) t;
-        boolean result = prop.buy(p);
-        return result;
+        return success;
     }
 
     /* --- Event card / deck helpers --- */
@@ -261,7 +185,6 @@ public class GameState implements Serializable {
     // === SYSTEM ZDARZEŃ (OBSERVER PATTERN) ===
     
     private transient List<GameEventListener> eventListeners;
-    private TradeOffer pendingTrade;
     
     /**
      * Zwraca listę eventListeners, inicjalizując ją jeśli potrzeba (np. po deserializacji).
@@ -298,220 +221,70 @@ public class GameState implements Serializable {
     
     // === SYSTEM HANDLU ===
     
-    /**
-     * Proponuje wymianę innemu graczowi.
-     * @return true jeśli oferta została złożona
-     */
     public boolean proposeTrade(TradeOffer offer) {
-        if (offer == null) return false;
-        if (pendingTrade != null) return false;  // jedna oferta naraz
-        if (!offer.isValid()) return false;
-        
-        pendingTrade = offer;
-        fireEvent(new GameEvent(
-            GameEvent.Type.TRADE_PROPOSED,
-            offer.getProposer(),
-            offer,
-            offer.getDescription()
-        ));
-        return true;
+        return propertyManager.proposeTrade(this, offer);
     }
     
-    /**
-     * Akceptuje oczekującą ofertę wymiany.
-     * @return true jeśli wymiana się powiodła
-     */
     public boolean acceptTrade() {
-        if (pendingTrade == null) return false;
-        
-        boolean success = pendingTrade.execute();
-        if (success) {
-            fireEvent(new GameEvent(
-                GameEvent.Type.TRADE_ACCEPTED,
-                pendingTrade.getRecipient(),
-                pendingTrade,
-                pendingTrade.getRecipient().getUsername() + " zaakceptował wymianę"
-            ));
-        }
-        pendingTrade = null;
-        return success;
+        return propertyManager.acceptTrade(this);
     }
     
-    /**
-     * Odrzuca oczekującą ofertę wymiany.
-     */
     public boolean rejectTrade() {
-        if (pendingTrade == null) return false;
-        
-        pendingTrade.reject();
-        fireEvent(new GameEvent(
-            GameEvent.Type.TRADE_REJECTED,
-            pendingTrade.getRecipient(),
-            pendingTrade,
-            pendingTrade.getRecipient().getUsername() + " odrzucił wymianę"
-        ));
-        pendingTrade = null;
-        return true;
+        return propertyManager.rejectTrade(this);
     }
     
-    /**
-     * Anuluje oczekującą ofertę wymiany (przez oferenta).
-     */
     public boolean cancelTrade() {
-        if (pendingTrade == null) return false;
-        
-        pendingTrade.cancel();
-        fireEvent(new GameEvent(
-            GameEvent.Type.TRADE_CANCELLED,
-            pendingTrade.getProposer(),
-            pendingTrade,
-            pendingTrade.getProposer().getUsername() + " anulował wymianę"
-        ));
-        pendingTrade = null;
-        return true;
+        return propertyManager.cancelTrade(this);
     }
     
     public TradeOffer getPendingTrade() {
-        return pendingTrade;
+        return propertyManager.getPendingTrade();
     }
     
     // === SYSTEM AUKCJI ===
     
-    private Auction currentAuction;
-    
-    /**
-     * Rozpoczyna aukcję nieruchomości.
-     * @param property nieruchomość do licytacji (musi być bez właściciela)
-     * @return true jeśli aukcja została rozpoczęta
-     */
     public boolean startAuction(PropertyTile property) {
-        if (property == null) return false;
-        if (property.isOwned()) return false;
-        if (currentAuction != null && currentAuction.isActive()) return false;
-        if (players.size() < 2) return false;
-        
-        currentAuction = new Auction(property, players, property.getPrice());
-        fireEvent(new GameEvent(
-            GameEvent.Type.AUCTION_STARTED,
-            null,
-            currentAuction,
-            "Rozpoczęto aukcję: " + property.getCity() + " (min. " + currentAuction.getMinimumBid() + " zł)"
-        ));
-        return true;
+        return propertyManager.startAuction(this, property);
     }
     
-    /**
-     * Gracz składa ofertę w trwającej aukcji.
-     * @param bidder gracz licytujący
-     * @param amount kwota oferty
-     * @return true jeśli oferta została przyjęta
-     */
     public boolean placeBid(Player bidder, int amount) {
-        if (currentAuction == null || !currentAuction.isActive()) return false;
-        
-        boolean success = currentAuction.placeBid(bidder, amount);
-        if (success) {
-            fireEvent(new GameEvent(
-                GameEvent.Type.AUCTION_BID,
-                bidder,
-                amount,
-                bidder.getUsername() + " licytuje: " + amount + " zł"
-            ));
-        }
-        return success;
+        return propertyManager.placeBid(this, bidder, amount);
     }
     
-    /**
-     * Gracz rezygnuje z dalszej licytacji.
-     * @param player gracz który pasuje
-     */
     public void passAuction(Player player) {
-        if (currentAuction == null || !currentAuction.isActive()) return;
-        
-        currentAuction.pass(player);
-        fireEvent(new GameEvent(
-            GameEvent.Type.AUCTION_BID,
-            player,
-            "pass",
-            player.getUsername() + " pasuje"
-        ));
-        
-        // Sprawdź czy aukcja się zakończyła
-        if (!currentAuction.isActive()) {
-            onAuctionEnded();
-        }
+        propertyManager.passAuction(this, player);
     }
     
-    /**
-     * Wymusza zakończenie aukcji.
-     */
     public void endAuction() {
-        if (currentAuction == null) return;
-        
-        currentAuction.forceEnd();
-        onAuctionEnded();
-    }
-    
-    /**
-     * Wywoływane gdy aukcja się kończy.
-     */
-    private void onAuctionEnded() {
-        if (currentAuction == null) return;
-        
-        Player winner = currentAuction.getHighestBidder();
-        int winningBid = currentAuction.getHighestBid();
-        PropertyTile property = currentAuction.getProperty();
-        
-        String message;
-        if (winner != null) {
-            message = winner.getUsername() + " wygrał aukcję " + property.getCity() + " za " + winningBid + " zł";
-        } else {
-            message = "Aukcja " + property.getCity() + " zakończona bez zwycięzcy";
-        }
-        
-        fireEvent(new GameEvent(
-            GameEvent.Type.AUCTION_ENDED,
-            winner,
-            currentAuction,
-            message
-        ));
-        
-        currentAuction = null;
+        propertyManager.endAuction(this);
     }
     
     public Auction getCurrentAuction() {
-        return currentAuction;
+        return propertyManager.getCurrentAuction();
     }
     
     public boolean hasActiveAuction() {
-        return currentAuction != null && currentAuction.isActive();
+        return propertyManager.hasActiveAuction();
     }
     
     // === OBSŁUGA SIECI ===
     
     /**
      * Przetwarza wiadomość sieciową i aktualizuje stan gry.
-     * Używane zarówno przez klienta (aktualizacja stanu) jak i hosta (akcje graczy).
      */
     public void processNetworkMessage(GameMessage msg, boolean isHost) {
         processNetworkMessage(msg, isHost, null);
     }
     
-    /**
-     * Przetwarza wiadomość sieciową z obsługą ACK.
-     * @param msg wiadomość do przetworzenia
-     * @param isHost czy przetwarzane przez hosta
-     * @param networkManager manager sieci do wysyłania ACK (może być null)
-     */
     public void processNetworkMessage(GameMessage msg, boolean isHost, 
                                        com.kaluzaplotecka.milionerzy.network.NetworkManager networkManager) {
         if (msg == null) return;
         
-        boolean processed = false;  // Flaga do śledzenia czy wiadomość została przetworzona
+        boolean processed = false;
         
         switch (msg.getType()) {
             case ROLL_DICE -> {
-                if (isHost) { // Tylko host może wykonać logikę gry na żądanie gracza
+                if (isHost) {
                     String senderId = msg.getSenderId();
                     Player p = getCurrentPlayer();
                     if (p != null && p.getId().equals(senderId)) {
@@ -524,17 +297,9 @@ public class GameState implements Serializable {
                 if (isHost) {
                    String senderId = msg.getSenderId();
                    Player currentPlayer = getCurrentPlayer();
-                   // Verify if sender is current player (compare by ID, not reference)
                    if (currentPlayer != null && currentPlayer.getId().equals(senderId)) {
                         boolean success = buyCurrentProperty();
                         if (success) {
-                            fireEvent(new GameEvent(
-                                GameEvent.Type.PROPERTY_BOUGHT,
-                                currentPlayer,
-                                getCurrentTile(),
-                                currentPlayer.getUsername() + " kupił " + ((PropertyTile)getCurrentTile()).getCity()
-                            ));
-                            // Po zakupie zmień turę
                             nextTurn();
                         }
                         processed = true;
@@ -545,7 +310,6 @@ public class GameState implements Serializable {
                 if (isHost) {
                    String senderId = msg.getSenderId();
                    Player currentPlayer = getCurrentPlayer();
-                   // Verify if sender is current player (compare by ID, not reference)
                    if (currentPlayer != null && currentPlayer.getId().equals(senderId)) {
                        Tile t = getCurrentTile();
                        if (t instanceof PropertyTile pt && !pt.isOwned()) {
@@ -555,26 +319,23 @@ public class GameState implements Serializable {
                    }
                 }
             }
-            // Aukcje - Klient odbiera aktualizacje
             case AUCTION_START -> {
                 if (!isHost && msg.getPayload() instanceof Auction auction) {
-                    this.currentAuction = auction;
-                    // Fire event locally to update UI
+                    propertyManager.setCurrentAuction(auction);
                      fireEvent(new GameEvent(
                         GameEvent.Type.AUCTION_STARTED,
                         null,
-                        currentAuction,
-                        "Rozpoczęto aukcję: " + currentAuction.getProperty().getCity()
+                        auction,
+                        "Rozpoczęto aukcję: " + auction.getProperty().getCity()
                     ));
                 }
             }
             case AUCTION_BID -> {
                 if (isHost) {
-                    // Host odbiera ofertę od klienta
                     String senderId = msg.getSenderId();
                     Object payload = msg.getPayload();
                     
-                    Player bidder = players.stream()
+                    Player bidder = getPlayers().stream()
                         .filter(p -> p.getId().equals(senderId))
                         .findFirst()
                         .orElse(null);
@@ -583,33 +344,21 @@ public class GameState implements Serializable {
                         if (payload instanceof Integer amount) {
                             placeBid(bidder, amount);
                             processed = true;
-                        } else if (payload instanceof String s && "pass".equals(s)) { // Can be "pass" via message logic? OR separate AUCTION_PASS type
-                            // Actually we mapped pass to AUCTION_PASS in GameMessage, so check logic.
-                            // But maybe we receive raw AUCTION_BID with string "pass" from older clients? Safe to handle.
+                        } else if (payload instanceof String s && "pass".equals(s)) {
                             processed = true;
                         }
                     }
                 } else {
-                    // Klient odbiera aktualizację bidding
-                    // Payload powinien zawierać zaktualizowaną aukcję lub dane o bidzie.
-                    // Ale NetworkGameEventListener wysyła to co było w evencie.
-                    // Event AUCTION_BID ma payload: kwota (int) LUB "pass" (String).
-                    // Ale to nie aktualizuje stanu lokalnego `currentAuction`.
-                    // Klient musi zaktualizować swój obiekt Auction.
-                    // Najlepiej gdyby Host wysyłał zaktualizowany obiekt Auction przy każdej zmianie.
-                    // Ale to dużo danych.
-                    // Spróbujmy zaktualizować lokalny obiekt na podstawie danych.
-                    if (currentAuction != null) {
+                    if (hasActiveAuction()) {
                        String senderId = msg.getSenderId();
                        Object payload = msg.getPayload();
-                       Player bidder = players.stream()
+                       Player bidder = getPlayers().stream()
                             .filter(p -> p.getId().equals(senderId))
                             .findFirst()
                             .orElse(null);
                             
                        if (bidder != null && payload instanceof Integer amount) {
-                           // Force update local state visually (logic validation skipped on client)
-                           currentAuction.placeBid(bidder, amount);
+                           propertyManager.getCurrentAuction().placeBid(bidder, amount);
                            
                            fireEvent(new GameEvent(
                                 GameEvent.Type.AUCTION_BID,
@@ -624,7 +373,7 @@ public class GameState implements Serializable {
             case AUCTION_PASS -> {
                 if (isHost) {
                      String senderId = msg.getSenderId();
-                     Player bidder = players.stream()
+                     Player bidder = getPlayers().stream()
                         .filter(p -> p.getId().equals(senderId))
                         .findFirst()
                         .orElse(null);
@@ -633,16 +382,15 @@ public class GameState implements Serializable {
                          processed = true;
                      }
                 } else {
-                    // Klient odbiera pass
-                    if (currentAuction != null) {
+                    if (hasActiveAuction()) {
                         String senderId = msg.getSenderId();
-                        Player bidder = players.stream()
+                        Player bidder = getPlayers().stream()
                             .filter(p -> p.getId().equals(senderId))
                             .findFirst()
                             .orElse(null);
                         
                         if (bidder != null) {
-                            currentAuction.pass(bidder);
+                            propertyManager.getCurrentAuction().pass(bidder);
                              fireEvent(new GameEvent(
                                 GameEvent.Type.AUCTION_BID,
                                 bidder,
@@ -654,21 +402,15 @@ public class GameState implements Serializable {
                 }
             }
             case AUCTION_ENDED -> {
-                if (!isHost) { // Klient kończy aukcję
+                if (!isHost) {
                      Object payload = msg.getPayload();
                      if (payload instanceof Auction finalAuction) {
-                         // Update final state properties (winner etc)
-                         // Wait, property ownership needs to be updated too on client!
-                         // Sync property owner?
-                         this.currentAuction = finalAuction;
+                         propertyManager.setCurrentAuction(finalAuction);
                          
-                         // Manually update property ownership on client
                          if (finalAuction.getHighestBidder() != null && finalAuction.getProperty() != null) {
-                             // Find local property tile
                              Tile t = board.getTile(finalAuction.getProperty().getPosition());
                              if (t instanceof PropertyTile pt) {
-                                 // Find local player object
-                                 Player localWinner = players.stream()
+                                 Player localWinner = getPlayers().stream()
                                      .filter(p -> p.getId().equals(finalAuction.getHighestBidder().getId()))
                                      .findFirst().orElse(null);
                                  if (localWinner != null) {
@@ -680,25 +422,23 @@ public class GameState implements Serializable {
                          }
                      }
                      
-                     // Helper to fire end event
-                     Player winner = currentAuction != null ? currentAuction.getHighestBidder() : null;
+                     Player winner = propertyManager.getCurrentAuction() != null 
+                             ? propertyManager.getCurrentAuction().getHighestBidder() : null;
                      
                      fireEvent(new GameEvent(
                         GameEvent.Type.AUCTION_ENDED,
                         winner,
-                        currentAuction,
+                        propertyManager.getCurrentAuction(),
                         "Aukcja zakończona"
                     ));
-                     this.currentAuction = null;
+                     propertyManager.setCurrentAuction(null);
                 }
             }
 
             case END_TURN -> {
-                // Gracz sygnalizuje koniec tury
                 if (isHost) {
                     String senderId = msg.getSenderId();
                     Player p = getCurrentPlayer();
-                    // Tylko aktualny gracz może zakończyć turę
                     if (p != null && p.getId().equals(senderId)) {
                         nextTurn();
                         processed = true;
@@ -706,42 +446,36 @@ public class GameState implements Serializable {
                 }
             }
             case NEXT_TURN -> {
-                // Klient otrzymuje informację o zmianie tury
                 if (!isHost) {
                      String newCurrentPlayerId = msg.getSenderId();
-                     // Aktualizujemy indeks gracza
-                     for (int i = 0; i < players.size(); i++) {
+                     List<Player> players = turnManager.getPlayers();
+                     for(int i=0; i<players.size(); i++) {
                          if (players.get(i).getId().equals(newCurrentPlayerId)) {
-                             currentPlayerIndex = i;
+                             fireEvent(new GameEvent(
+                                GameEvent.Type.TURN_STARTED,
+                                players.get(i),
+                                "Tura gracza " + players.get(i).getUsername()
+                            ));
                              break;
                          }
                      }
-                     
-                     // Informujemy UI
-                     fireEvent(new GameEvent(
-                        GameEvent.Type.TURN_STARTED,
-                        getCurrentPlayer(),
-                        "Tura gracza " + getCurrentPlayer().getUsername()
-                    ));
                 }
             }
 
             default -> {
-                 // Handle or ignore other message types
             }
         }
         
-        // Wyślij ACK jeśli wiadomość została przetworzona i wymaga potwierdzenia
         if (isHost && processed && msg.requiresAck() && networkManager != null) {
             networkManager.sendAck(msg.getMessageId(), msg.getSenderId());
         }
     }
     
     public List<Player> getPlayers() {
-        return new ArrayList<>(players);
+        return turnManager.getPlayers();
     }
     
     public int getRoundNumber() {
-        return roundNumber;
+        return turnManager.getRoundNumber();
     }
 }
