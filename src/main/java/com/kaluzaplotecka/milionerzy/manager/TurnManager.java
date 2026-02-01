@@ -13,7 +13,17 @@ public class TurnManager implements Serializable {
     private int currentPlayerIndex;
     private int roundNumber;
 
+    /**
+     * Creates a new TurnManager with the given list of players.
+     * 
+     * @param players the list of players (must not be null; may be empty for fallback scenarios
+     *                like corrupted save files, though an empty list results in a non-functional game state)
+     * @throws IllegalArgumentException if players is null
+     */
     public TurnManager(List<Player> players) {
+        if (players == null) {
+            throw new IllegalArgumentException("Players list cannot be null");
+        }
         this.players = new ArrayList<>(players);
         this.currentPlayerIndex = 0;
         this.roundNumber = 0;
@@ -30,6 +40,11 @@ public class TurnManager implements Serializable {
 
     /**
      * Advances to the next turn.
+     * 
+     * Note: This class is not thread-safe. If GameState is accessed from multiple threads
+     * (e.g., in a networked game with concurrent message processing), external synchronization
+     * is required to prevent race conditions.
+     * 
      * @return true if a new round started
      */
     public boolean nextTurn() {
@@ -47,10 +62,10 @@ public class TurnManager implements Serializable {
     }
     
     /**
-     * Sets the round number. Package-private for use by GameState when migrating old saves.
+     * Sets the round number. Used by GameState when migrating old saves.
      * @param roundNumber the round number to set
      */
-    void setRoundNumber(int roundNumber) {
+    public void setRoundNumber(int roundNumber) {
         this.roundNumber = roundNumber;
     }
     

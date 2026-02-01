@@ -14,7 +14,6 @@ public class MovementManager implements Serializable {
     private transient Random rand;
     
     public MovementManager() {
-        this.rand = new Random();
     }
     
     public int rollDice() {
