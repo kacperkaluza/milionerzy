@@ -22,6 +22,16 @@ import java.util.function.Consumer;
 
 public class DiceComponent extends VBox {
 
+    private static class DiceView {
+        final StackPane stackPane;
+        final Label label;
+        
+        DiceView(StackPane stackPane, Label label) {
+            this.stackPane = stackPane;
+            this.label = label;
+        }
+    }
+
     private final StackPane[] diceStacks = new StackPane[2];
     private final Label[] diceLabels = new Label[2];
     private final Button rollButton;
@@ -53,13 +63,10 @@ public class DiceComponent extends VBox {
         diceBox.setAlignment(Pos.CENTER);
         
         for (int i = 0; i < 2; i++) {
-            StackPane dice = createDice(1);
-            diceStacks[i] = dice;
-            // diceLabels[i] is set inside createDice helper, but we need to access it.
-            // Let's modify createDice to return the Label or structure.
-            // Or just traverse children as before, but cleaner to keep reference.
-            diceLabels[i] = (Label) ((StackPane) dice.getChildren().get(0)).getChildren().get(1);
-            diceBox.getChildren().add(dice);
+            DiceView diceView = createDice(1);
+            diceStacks[i] = diceView.stackPane;
+            diceLabels[i] = diceView.label;
+            diceBox.getChildren().add(diceView.stackPane);
         }
         
         rollButton = new Button("🎲  Losuj");
@@ -76,7 +83,7 @@ public class DiceComponent extends VBox {
         getChildren().addAll(diceBox, rollButton, saveButton);
     }
     
-    private StackPane createDice(int value) {
+    private DiceView createDice(int value) {
         StackPane diceStack = new StackPane();
         Rectangle dice = new Rectangle(80, 80);
         dice.setFill(Color.WHITE);
@@ -97,7 +104,7 @@ public class DiceComponent extends VBox {
         
         StackPane dicePane = new StackPane(dice, valueLabel);
         diceStack.getChildren().add(dicePane);
-        return diceStack;
+        return new DiceView(diceStack, valueLabel);
     }
     
     private void styleButton(Button btn, String color, String hoverColor) {
@@ -165,13 +172,19 @@ public class DiceComponent extends VBox {
                 timeline.getKeyFrames().add(keyFrame);
             }
             
-            // Split sum into two dice values (arbitrary but valid for the same sum)
-            // Ensures both dice show values between 1-6 and sum is preserved
-            // Valid dice sums are 2-12
-            int dice1 = Math.max(1, Math.min(6, sum / 2));
-            int dice2 = sum - dice1;
-            // Ensure dice2 is also in valid range (handles edge cases where sum > 12 or sum < 2)
-            dice2 = Math.max(1, Math.min(6, dice2));
+            // Valid dice sums are 2-12; clamp the input sum to this range
+            int clampedSum = Math.max(2, Math.min(12, sum));
+            int dice1;
+            int dice2;
+            if (clampedSum <= 7) {
+                // For sums 2-7, choose 1 and (sum - 1), both within 1-6
+                dice1 = 1;
+                dice2 = clampedSum - 1;
+            } else {
+                // For sums 8-12, choose 6 and (sum - 6), both within 1-6
+                dice1 = 6;
+                dice2 = clampedSum - 6;
+            }
             final int finalValue = (i == 0) ? dice1 : dice2;
             timeline.setOnFinished(e -> diceLabel.setText(getDiceSymbol(finalValue)));
             timeline.play();

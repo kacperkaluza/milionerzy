@@ -20,9 +20,12 @@ import javafx.util.Duration;
 
 import com.kaluzaplotecka.milionerzy.model.Player;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Komponent odpowiedzialny za rysowanie planszy i zarządzanie pionkami.
@@ -258,6 +261,25 @@ public class BoardComponent extends StackPane {
         // Na potrzeby tego zadania skopiujmy logikę syncPawnsOnStateChange,
         // ale dostosowaną do komponentu.
         
+        // First, identify and remove pawns for players no longer in currentPlayers
+        Set<String> currentPlayerIds = currentPlayers.stream()
+            .map(Player::getId)
+            .collect(Collectors.toSet());
+        
+        List<Player> playersToRemove = new ArrayList<>();
+        for (Player p : playerPawns.keySet()) {
+            if (!currentPlayerIds.contains(p.getId())) {
+                playersToRemove.add(p);
+            }
+        }
+        
+        for (Player p : playersToRemove) {
+            Circle pawn = playerPawns.remove(p);
+            if (pawn != null) {
+                playerLayer.getChildren().remove(pawn);
+            }
+        }
+        
         for (int i = 0; i < currentPlayers.size(); i++) {
             Player p = currentPlayers.get(i);
             Circle existingPawn = null;
@@ -310,7 +332,19 @@ public class BoardComponent extends StackPane {
         int steps = newPos - oldPos;
         if (steps < 0) steps += 40;
         
-        int pIndex = players.indexOf(player);
+        int pIndex = -1;
+        if (players != null && player != null && player.getId() != null) {
+            for (int i = 0; i < players.size(); i++) {
+                Player p = players.get(i);
+                if (p != null && player.getId().equals(p.getId())) {
+                    pIndex = i;
+                    break;
+                }
+            }
+        }
+        if (pIndex < 0) {
+            pIndex = 0;
+        }
         double offsetX = (pIndex % 2 == 0 ? -5 : 5);
         double offsetY = (pIndex < 2 ? -5 : 5);
         
