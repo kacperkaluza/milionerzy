@@ -153,7 +153,7 @@ public class GameView implements GameEventListener {
                     }
                 } else if (msg.getType() == GameMessage.MessageType.MOVE) {
                     handleMove(msg);
-                } else if (networkManager.getMode().equals(NetworkManager.Mode.HOST)) {
+                } else if (networkManager.getMode().equals(NetworkManager.Mode.HOST) && gameState != null) {
                      gameState.processNetworkMessage(msg, true, networkManager);
                 }
             });
@@ -215,6 +215,11 @@ public class GameView implements GameEventListener {
 
 
     private void refreshBoard() {
+        if (gameState == null) {
+            // In client mode, gameState can be null before the first synchronization.
+            // In that case, there is nothing to refresh yet.
+            return;
+        }
         for (Player p : gameState.getPlayers()) {
              // Using ID or Index. Players list in GameView is kept in sync with GameState.
              // Assuming players list order matches panels order (as created in createScene)
