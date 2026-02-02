@@ -2,8 +2,8 @@ package com.kaluzaplotecka.milionerzy.view.components;
 
 import javafx.animation.ScaleTransition;
 import javafx.scene.control.Button;
-
 import javafx.util.Duration;
+import com.kaluzaplotecka.milionerzy.view.utils.UIConstants;
 
 /**
  * Custom reusable button component with gradient background, animations, and sound effects.
@@ -11,22 +11,24 @@ import javafx.util.Duration;
 public class GameButton extends Button {
 
     private static final String DEFAULT_FONT_WEIGHT = "bold";
-    private static final String DEFAULT_FONT_SIZE = "12px"; // Changed from 16px
+    private static final String DEFAULT_FONT_SIZE = "16px";
     
     // Default Style Properties
     private String fontSize = DEFAULT_FONT_SIZE;
-    private String textColor = "white";
-    private String padding = "2 4"; // Changed from 15 40
+    private String textColor = UIConstants.TEXT_WHITE;
+    private String opacity = "1";
+    private String padding = "8 16"; 
     private String borderColor = "transparent";
     private String borderWidth = "0";
     private String borderRadius = "30";
 
-    // Default Gradient (Blue/Purple like in MainMenu)
-    private String gradientStart = "#667eea";
-    private String gradientEnd = "#764ba2";
+    // Default Gradient
+    private String gradientStart = UIConstants.PRIMARY_GRADIENT_START;
+    private String gradientEnd = UIConstants.PRIMARY_GRADIENT_END;
     
     // Default Shadow Color
-    private String shadowColor = "rgba(102, 126, 234, 0.5)";
+    private String shadowColor = "rgba(45, 45, 45, 0.15)";
+
 
     /**
      * Base constructor.
@@ -96,13 +98,6 @@ public class GameButton extends Button {
     }
     
     /**
-     * Sets the background to transparent.
-     */
-    public void setTransparentBackground() {
-        setColor("transparent");
-    }
-    
-    /**
      * Customizes the shadow color for the drop shadow effect.
      * @param rgbaColor RGBA string for shadow (e.g. "rgba(255, 107, 107, 0.5)")
      */
@@ -161,11 +156,25 @@ public class GameButton extends Button {
 
     /**
      * Sets the border radius (corner roundness).
-     * @param radius Radius in pixels
+     * @param radius Radius in pixels   
      */
     public void setBorderRadius(int radius) {
         this.borderRadius = String.valueOf(radius);
         updateStyle();
+    }
+
+    public void setOpacity(String opacity) {
+        this.opacity = opacity;
+        updateStyle();
+    }
+    
+    public void setDisabledStyle(boolean disabled) {
+        if (disabled) {
+            setOpacity("0.5");
+        } else {
+            setOpacity("1");
+        }
+        setDisable(disabled);
     }
 
     private void initializeStyle() {
@@ -175,7 +184,8 @@ public class GameButton extends Button {
 
     private void updateStyle() {
         String style = String.format(
-            "-fx-background-color: linear-gradient(to right, %s, %s); " +
+                "-fx-background-color: linear-gradient(to right, %s, %s); " +
+                "-fx-opacity: %s; " +
             "-fx-text-fill: %s; " +
             "-fx-border-color: %s; " +
             "-fx-border-width: %s; " +
@@ -186,7 +196,7 @@ public class GameButton extends Button {
             "-fx-font-weight: %s; " +
             "-fx-cursor: hand; " +
             "-fx-effect: dropshadow(gaussian, %s, 15, 0, 0, 5);",
-            gradientStart, gradientEnd, textColor, borderColor, borderWidth, borderRadius, borderRadius, padding, fontSize, DEFAULT_FONT_WEIGHT, shadowColor
+            gradientStart, gradientEnd, opacity, textColor, borderColor, borderWidth, borderRadius, borderRadius, padding, fontSize, DEFAULT_FONT_WEIGHT, shadowColor
         );
         setStyle(style);
     }
@@ -196,21 +206,9 @@ public class GameButton extends Button {
         // For simplicity, we just swap the gradient equivalent to MainMenu's hover style logic
         
         setOnMouseEntered(e -> {
-            String hoverStyle = String.format(
-                "-fx-background-color: linear-gradient(to right, %s, %s); " +
-                "-fx-text-fill: %s; " +
-                "-fx-border-color: %s; " +
-                "-fx-border-width: %s; " +
-                "-fx-border-radius: %s; " +
-                "-fx-background-radius: %s; " +
-                "-fx-padding: %s; " +
-                "-fx-font-size: %s; " +
-                "-fx-font-weight: %s; " +
-                "-fx-cursor: hand; " +
-                "-fx-effect: dropshadow(gaussian, %s, 20, 0, 0, 8);",
-                gradientEnd, gradientStart, textColor, borderColor, borderWidth, borderRadius, borderRadius, padding, fontSize, DEFAULT_FONT_WEIGHT, shadowColor
-            );
-            setStyle(hoverStyle);
+            if (isDisabled()) return;
+            
+            setOpacity("0.8");
 
             ScaleTransition scale = new ScaleTransition(Duration.millis(150), this);
             scale.setToX(1.05);
@@ -219,7 +217,9 @@ public class GameButton extends Button {
         });
 
         setOnMouseExited(e -> {
-            updateStyle(); // Reset to normal style
+            if (isDisabled()) return;
+            
+            setOpacity("1");
             ScaleTransition scale = new ScaleTransition(Duration.millis(150), this);
             scale.setToX(1.0);
             scale.setToY(1.0);
@@ -227,6 +227,8 @@ public class GameButton extends Button {
         });
 
         setOnMousePressed(e -> {
+            if (isDisabled()) return;
+            
             ScaleTransition scale = new ScaleTransition(Duration.millis(100), this);
             scale.setToX(0.95);
             scale.setToY(0.95);
@@ -234,6 +236,8 @@ public class GameButton extends Button {
         });
 
         setOnMouseReleased(e -> {
+            if (isDisabled()) return;
+            
             ScaleTransition scale = new ScaleTransition(Duration.millis(100), this);
             scale.setToX(1.05);
             scale.setToY(1.05);
