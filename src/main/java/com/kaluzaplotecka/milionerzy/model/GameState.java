@@ -2,8 +2,6 @@ package com.kaluzaplotecka.milionerzy.model;
 
 import com.kaluzaplotecka.milionerzy.network.GameMessage;
 
-import java.io.IOException;
-import java.io.ObjectInputStream;
 import java.io.Serializable;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -35,20 +33,6 @@ public class GameState implements Serializable {
     private MovementManager movementManager;
     private BankManager bankManager;
     private PropertyManager propertyManager;
-
-    // Old fields for backward compatibility with pre-refactoring saves
-    // These will be null in new saves, but may contain data in old saves
-    @Deprecated
-    private transient List<Player> players;
-    @Deprecated
-    private transient Integer currentPlayerIndex;
-    @Deprecated
-    private transient Integer roundNumber;
-    @Deprecated
-    private transient TradeOffer pendingTrade;
-    @Deprecated
-    private transient Auction currentAuction;
-
 
     public GameState(Board board, List<Player> players){
         this.board = board;
@@ -88,6 +72,10 @@ public class GameState implements Serializable {
 
     public void moveCurrentPlayer(){
         movementManager.moveCurrentPlayer(this);
+    }
+
+    public void moveCurrentPlayer(int steps){
+        movementManager.moveCurrentPlayer(this, steps);
     }
 
     /**
@@ -302,9 +290,24 @@ public class GameState implements Serializable {
                 if (isHost) {
                     String senderId = msg.getSenderId();
                     Player p = getCurrentPlayer();
+                    System.out.println("[DEBUG ROLL_DICE] senderId=" + senderId + ", currentPlayer=" + (p != null ? p.getId() : "null"));
                     if (p != null && p.getId().equals(senderId)) {
-                        moveCurrentPlayer();
+                        // Jeśli klient przysłał wynik rzutu (int[] lub Integer), użyj go
+                        Object payload = msg.getPayload();
+                        if (payload instanceof Integer steps) {
+                            moveCurrentPlayer(steps);
+                        } else if (payload instanceof int[] stepsArr && stepsArr.length > 0) {
+                             // Obsługa int[] dla wstecznej kompatybilności (z testami)
+                             int sum = 0;
+                             for (int s : stepsArr) sum += s;
+                             moveCurrentPlayer(sum);
+                        } else {
+                            // Fallback: serwer losuje
+                            moveCurrentPlayer();
+                        }
                         processed = true;
+                    } else {
+                        System.out.println("[DEBUG ROLL_DICE] ID mismatch: not current player's turn!");
                     }
                 }
             }
@@ -491,61 +494,5 @@ public class GameState implements Serializable {
     
     public int getRoundNumber() {
         return turnManager.getRoundNumber();
-    }
-    
-    /**
-     * Custom deserialization to migrate old save files to the new manager structure.
-     * Old saves had players, currentPlayerIndex, roundNumber, pendingTrade, and currentAuction
-     * directly in GameState. New saves have these in separate manager objects.
-     */
-    private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
-        in.defaultReadObject();
-        
-        // If managers are null, we're loading an old save file or a corrupted/partial save
-        if (turnManager == null) {
-            if (players != null) {
-                // Migrate old turn data to TurnManager
-                turnManager = new TurnManager(players);
-                // Restore current player index if available
-                if (currentPlayerIndex != null && currentPlayerIndex >= 0 && currentPlayerIndex < players.size()) {
-                    Player targetPlayer = players.get(currentPlayerIndex);
-                    if (targetPlayer != null) {
-                        turnManager.setCurrentPlayerById(targetPlayer.getId());
-                    }
-                }
-                // Restore round number if available
-                if (roundNumber != null && roundNumber >= 0) {
-                    turnManager.setRoundNumber(roundNumber);
-                }
-            } else {
-                // Fallback: create an empty TurnManager when no player data is available.
-                // This can occur with corrupted save files or incomplete deserialization.
-                // The resulting game state will be non-functional and should be handled
-                // appropriately by the loading code.
-                turnManager = new TurnManager(new ArrayList<>());
-            }
-        }
-        
-        // If movementManager is null, create it
-        if (movementManager == null) {
-            movementManager = new MovementManager();
-        }
-        
-        // If bankManager is null, create it
-        if (bankManager == null) {
-            bankManager = new BankManager();
-        }
-        
-        // If propertyManager is null, create it and migrate old trade/auction data
-        if (propertyManager == null) {
-            propertyManager = new PropertyManager();
-            // Migrate old trade and auction data if present
-            if (pendingTrade != null) {
-                propertyManager.setPendingTrade(pendingTrade);
-            }
-            if (currentAuction != null) {
-                propertyManager.setCurrentAuction(currentAuction);
-            }
-        }
     }
 }

@@ -28,6 +28,10 @@ public class MovementManager implements Serializable {
     }
     
     public void moveCurrentPlayer(GameState game) {
+        moveCurrentPlayer(game, rollDice());
+    }
+
+    public void moveCurrentPlayer(GameState game, int steps) {
         Player p = game.getCurrentPlayer();
         if (p == null) return;
 
@@ -40,8 +44,6 @@ public class MovementManager implements Serializable {
             return;
         }
 
-        int steps = rollDice();
-        
         game.fireEvent(new GameEvent(
             GameEvent.Type.DICE_ROLLED,
             null,
