@@ -1,5 +1,7 @@
 package com.kaluzaplotecka.milionerzy.view;
 
+import com.kaluzaplotecka.milionerzy.view.components.GameButton;
+
 import javafx.animation.FadeTransition;
 import javafx.animation.ScaleTransition;
 import javafx.animation.TranslateTransition;
@@ -13,64 +15,14 @@ import javafx.scene.effect.DropShadow;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
-import javafx.scene.shape.Rectangle;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
-import javafx.scene.layout.StackPane;
 import javafx.stage.Stage;
 import javafx.util.Duration;
 
 public class MainMenu extends Application {
 
     private Stage primaryStage;
-
-    private static final String BUTTON_STYLE = 
-        "-fx-background-color: linear-gradient(to right, #667eea, #764ba2); " +
-        "-fx-text-fill: white; " +
-        "-fx-border-color: transparent; " +
-        "-fx-border-radius: 30; " +
-        "-fx-background-radius: 30; " +
-        "-fx-padding: 15 40; " +
-        "-fx-font-size: 22px; " +
-        "-fx-font-weight: bold; " +
-        "-fx-cursor: hand; " +
-        "-fx-effect: dropshadow(gaussian, rgba(102, 126, 234, 0.5), 15, 0, 0, 5);";
-
-    private static final String BUTTON_HOVER_STYLE = 
-        "-fx-background-color: linear-gradient(to right, #764ba2, #667eea); " +
-        "-fx-text-fill: white; " +
-        "-fx-border-color: transparent; " +
-        "-fx-border-radius: 30; " +
-        "-fx-background-radius: 30; " +
-        "-fx-padding: 15 40; " +
-        "-fx-font-size: 22px; " +
-        "-fx-font-weight: bold; " +
-        "-fx-cursor: hand; " +
-        "-fx-effect: dropshadow(gaussian, rgba(118, 75, 162, 0.7), 20, 0, 0, 8);";
-    
-    private static final String EXIT_BUTTON_STYLE = 
-        "-fx-background-color: linear-gradient(to right, #ff6b6b, #ee5a5a); " +
-        "-fx-text-fill: white; " +
-        "-fx-border-color: transparent; " +
-        "-fx-border-radius: 30; " +
-        "-fx-background-radius: 30; " +
-        "-fx-padding: 15 40; " +
-        "-fx-font-size: 22px; " +
-        "-fx-font-weight: bold; " +
-        "-fx-cursor: hand; " +
-        "-fx-effect: dropshadow(gaussian, rgba(255, 107, 107, 0.5), 15, 0, 0, 5);";
-    
-    private static final String EXIT_BUTTON_HOVER_STYLE = 
-        "-fx-background-color: linear-gradient(to right, #ee5a5a, #ff6b6b); " +
-        "-fx-text-fill: white; " +
-        "-fx-border-color: transparent; " +
-        "-fx-border-radius: 30; " +
-        "-fx-background-radius: 30; " +
-        "-fx-padding: 15 40; " +
-        "-fx-font-size: 22px; " +
-        "-fx-font-weight: bold; " +
-        "-fx-cursor: hand; " +
-        "-fx-effect: dropshadow(gaussian, rgba(238, 90, 90, 0.7), 20, 0, 0, 8);";
 
     @Override
     public void start(Stage stage) {
@@ -92,23 +44,18 @@ public class MainMenu extends Application {
         Label subtitleLabel = new Label("🎲 Gra planszowa 🎲");
         subtitleLabel.setFont(Font.font("System", FontWeight.NORMAL, 24));
         subtitleLabel.setTextFill(Color.web("#636e72"));
-
-        // Przyciski menu z animacjami
-        Button createGameBtn = createMenuButton("🎮  Stwórz Grę", false);
-        Button joinGameBtn = createMenuButton("🌐  Dołącz do gry", false);
-        Button settingsBtn = createMenuButton("⚙️  Ustawienia", false);
-        Button loadGameBtn = createMenuButton("📂  Wczytaj grę", false);
-        Button authorsBtn = createMenuButton("👥  Autorzy", false);
-        Button exitBtn = createMenuButton("🚪  Wyjdź z gry", true);
-
-        // Akcje przycisków
-        createGameBtn.setOnAction(e -> onCreateGame());
-        joinGameBtn.setOnAction(e -> onJoinGame());
-        settingsBtn.setOnAction(e -> onSettings());
-        loadGameBtn.setOnAction(e -> onLoadGame());
-        authorsBtn.setOnAction(e -> onAuthors());
-        exitBtn.setOnAction(e -> Platform.exit());
-
+        int buttonWidth = 200;
+        int buttonHeight = 60;
+        int fontSize = 24;
+        GameButton createGameBtn = new GameButton("Graj", buttonWidth, buttonHeight, fontSize, () ->onCreateGame());
+        GameButton joinGameBtn = new GameButton("Dołącz do gry", buttonWidth, buttonHeight, fontSize, () ->onJoinGame());
+        GameButton settingsBtn = new GameButton("Ustawienia", buttonWidth, buttonHeight, fontSize, () ->onSettings());
+        GameButton loadGameBtn = new GameButton("Wczytaj grę", buttonWidth, buttonHeight, fontSize, () ->onLoadGame());
+        GameButton authorsBtn = new GameButton("Autorzy", buttonWidth, buttonHeight, fontSize, () ->onAuthors());
+        GameButton exitBtn = new GameButton("Wyjdź z gry", buttonWidth, buttonHeight, fontSize, () -> Platform.exit());
+        
+        exitBtn.setGradient("#ff6b6b", "#ff4757");
+        
         // Kontener na tytuły
         VBox titleBox = new VBox(10);
         titleBox.setAlignment(Pos.CENTER);
@@ -117,6 +64,7 @@ public class MainMenu extends Application {
         // Kontener na przyciski
         VBox buttonsBox = new VBox(18);
         buttonsBox.setAlignment(Pos.CENTER);
+        
         buttonsBox.getChildren().addAll(
             createGameBtn, 
             joinGameBtn, 
@@ -157,32 +105,9 @@ public class MainMenu extends Application {
         );
         mainLayout.getChildren().addAll(titleBox, buttonsBox);
         
-        // Dekoracyjne elementy
-        StackPane root = new StackPane();
-        root.getChildren().add(mainLayout);
-        
-        // Dekoracyjne kółko w tle (lewy górny róg)
-        Rectangle decorCircle1 = new Rectangle(300, 300);
-        decorCircle1.setArcWidth(300);
-        decorCircle1.setArcHeight(300);
-        decorCircle1.setFill(Color.rgb(102, 126, 234, 0.1));
-        decorCircle1.setTranslateX(-500);
-        decorCircle1.setTranslateY(-300);
-        
-        // Dekoracyjne kółko w tle (prawy dolny róg)
-        Rectangle decorCircle2 = new Rectangle(400, 400);
-        decorCircle2.setArcWidth(400);
-        decorCircle2.setArcHeight(400);
-        decorCircle2.setFill(Color.rgb(118, 75, 162, 0.08));
-        decorCircle2.setTranslateX(450);
-        decorCircle2.setTranslateY(250);
-        
-        root.getChildren().addAll(decorCircle1, decorCircle2);
-        decorCircle1.toBack();
-        decorCircle2.toBack();
         mainLayout.toFront();
 
-        Scene scene = new Scene(root, 1440, 900);
+        Scene scene = new Scene(mainLayout, 1440, 900);
         this.primaryStage.setTitle("Milionerzy Świętokrzyskiego");
         this.primaryStage.setScene(scene);
         this.primaryStage.setMinWidth(1000);
@@ -204,54 +129,7 @@ public class MainMenu extends Application {
         subtitleFade.setDelay(Duration.millis(300));
         subtitleFade.play();
     }
-
-    private Button createMenuButton(String text, boolean isExit) {
-        Button button = new Button(text);
-        
-        String normalStyle = isExit ? EXIT_BUTTON_STYLE : BUTTON_STYLE;
-        String hoverStyle = isExit ? EXIT_BUTTON_HOVER_STYLE : BUTTON_HOVER_STYLE;
-        
-        button.setStyle(normalStyle);
-        button.setMinWidth(320);
-        button.setMinHeight(55);
-        
-        // Hover animation
-        button.setOnMouseEntered(e -> {
-            button.setStyle(hoverStyle);
-            ScaleTransition scale = new ScaleTransition(Duration.millis(150), button);
-            scale.setToX(1.05);
-            scale.setToY(1.05);
-            scale.play();
-        });
-        
-        button.setOnMouseExited(e -> {
-            button.setStyle(normalStyle);
-            ScaleTransition scale = new ScaleTransition(Duration.millis(150), button);
-            scale.setToX(1.0);
-            scale.setToY(1.0);
-            scale.play();
-        });
-        
-        // Click animation
-        button.setOnMousePressed(e -> {
-            ScaleTransition scale = new ScaleTransition(Duration.millis(100), button);
-            scale.setToX(0.95);
-            scale.setToY(0.95);
-            scale.play();
-        });
-        
-        button.setOnMouseReleased(e -> {
-            ScaleTransition scale = new ScaleTransition(Duration.millis(100), button);
-            scale.setToX(1.05);
-            scale.setToY(1.05);
-            scale.play();
-        });
-        
-        return button;
-    }
-
-    // === Handlery przycisków (do implementacji) ===
-
+    
     private void onCreateGame() {
         System.out.println("Tworzenie nowej gry...");
         

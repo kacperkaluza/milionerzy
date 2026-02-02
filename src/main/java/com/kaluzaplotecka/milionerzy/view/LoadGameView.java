@@ -12,6 +12,9 @@ import javafx.stage.Stage;
 import com.kaluzaplotecka.milionerzy.model.GameState;
 import com.kaluzaplotecka.milionerzy.model.SaveManager;
 import com.kaluzaplotecka.milionerzy.model.SaveManager.SaveInfo;
+import com.kaluzaplotecka.milionerzy.view.components.GameButton;
+import com.kaluzaplotecka.milionerzy.view.utils.UIConstants;
+import com.kaluzaplotecka.milionerzy.view.utils.ViewFactory;
 
 import java.util.List;
 
@@ -19,36 +22,6 @@ public class LoadGameView {
     private final Stage stage;
     private final Runnable onBack;
     private ListView<SaveInfo> savesList;
-
-    private static final String BUTTON_STYLE = 
-        "-fx-background-color: linear-gradient(to right, #667eea, #764ba2); " +
-        "-fx-text-fill: white; " +
-        "-fx-border-radius: 30; " +
-        "-fx-background-radius: 30; " +
-        "-fx-padding: 10 30; " +
-        "-fx-font-size: 16px; " +
-        "-fx-font-weight: bold; " +
-        "-fx-cursor: hand;";
-    
-    private static final String BUTTON_GREEN_STYLE = 
-        "-fx-background-color: linear-gradient(to right, #27ae60, #2ecc71); " +
-        "-fx-text-fill: white; " +
-        "-fx-border-radius: 30; " +
-        "-fx-background-radius: 30; " +
-        "-fx-padding: 10 30; " +
-        "-fx-font-size: 16px; " +
-        "-fx-font-weight: bold; " +
-        "-fx-cursor: hand;";
-    
-    private static final String BUTTON_RED_STYLE = 
-        "-fx-background-color: linear-gradient(to right, #e74c3c, #c0392b); " +
-        "-fx-text-fill: white; " +
-        "-fx-border-radius: 30; " +
-        "-fx-background-radius: 30; " +
-        "-fx-padding: 10 30; " +
-        "-fx-font-size: 16px; " +
-        "-fx-font-weight: bold; " +
-        "-fx-cursor: hand;";
 
     public LoadGameView(Stage stage, Runnable onBack) {
         this.stage = stage;
@@ -59,10 +32,10 @@ public class LoadGameView {
         VBox root = new VBox(20);
         root.setAlignment(Pos.CENTER);
         root.setPadding(new Insets(40));
-        root.setStyle("-fx-background-color: linear-gradient(to bottom right, #f5f7fa, #e4e8f0);");
+        root.setStyle(UIConstants.BACKGROUND_GRADIENT);
 
         Label title = new Label("📂 Wczytaj Grę");
-        title.setStyle("-fx-font-size: 32px; -fx-font-weight: bold; -fx-text-fill: #2d3436;");
+        title.setStyle("-fx-font-size: 32px; -fx-font-weight: bold; -fx-text-fill: " + UIConstants.TEXT_PRIMARY + ";");
 
         // Lista zapisów
         savesList = new ListView<>();
@@ -92,35 +65,27 @@ public class LoadGameView {
         HBox buttonsBox = new HBox(15);
         buttonsBox.setAlignment(Pos.CENTER);
         
-        Button loadBtn = new Button("▶️ Gra lokalna");
-        loadBtn.setStyle(BUTTON_GREEN_STYLE);
-        loadBtn.setOnAction(e -> loadSelectedGame());
-        loadBtn.setDisable(true);
+        GameButton loadBtn = new GameButton("▶️ Gra lokalna", this::loadSelectedGame);
+        loadBtn.setGradient("#27ae60", "#2ecc71");
+        loadBtn.setDisabledStyle(true);
         
-        Button hostBtn = new Button("🌐 Hostuj grę");
-        hostBtn.setStyle(BUTTON_STYLE);
-        hostBtn.setOnAction(e -> hostSelectedGame());
-        hostBtn.setDisable(true);
+        GameButton hostBtn = new GameButton("🌐 Hostuj grę", this::hostSelectedGame);
+        hostBtn.setDisabledStyle(true);
         
-        Button deleteBtn = new Button("🗑️ Usuń");
-        deleteBtn.setStyle(BUTTON_RED_STYLE);
-        deleteBtn.setOnAction(e -> deleteSelectedSave());
-        deleteBtn.setDisable(true);
+        GameButton deleteBtn = new GameButton("🗑️ Usuń", this::deleteSelectedSave);
+        deleteBtn.setGradient("#e74c3c", "#c0392b");
+        deleteBtn.setDisabledStyle(true);
         
-        Button refreshBtn = new Button("🔄 Odśwież");
-        refreshBtn.setStyle(BUTTON_STYLE);
-        refreshBtn.setOnAction(e -> refreshSavesList());
+        GameButton refreshBtn = new GameButton("🔄 Odśwież", this::refreshSavesList);
         
-        Button backBtn = new Button("↩️ Powrót");
-        backBtn.setStyle(BUTTON_STYLE);
-        backBtn.setOnAction(e -> onBack.run());
+        GameButton backBtn = new GameButton("↩️ Powrót", onBack);
         
         // Aktywuj przyciski po wybraniu zapisu
         savesList.getSelectionModel().selectedItemProperty().addListener((obs, old, newVal) -> {
             boolean hasSelection = newVal != null;
-            loadBtn.setDisable(!hasSelection);
-            hostBtn.setDisable(!hasSelection);
-            deleteBtn.setDisable(!hasSelection);
+            loadBtn.setDisabledStyle(!hasSelection);
+            hostBtn.setDisabledStyle(!hasSelection);
+            deleteBtn.setDisabledStyle(!hasSelection);
         });
         
         buttonsBox.getChildren().addAll(loadBtn, hostBtn, deleteBtn, refreshBtn, backBtn);
@@ -133,7 +98,7 @@ public class LoadGameView {
         VBox.setVgrow(savesList, Priority.ALWAYS);
         root.getChildren().addAll(title, savesList, noSavesLabel, buttonsBox);
 
-        Scene scene = new Scene(root, 1440, 900);
+        Scene scene = ViewFactory.createStyledScene(root, 1440, 900);
         stage.setScene(scene);
         stage.setTitle("Milionerzy - Wczytaj Grę");
     }
