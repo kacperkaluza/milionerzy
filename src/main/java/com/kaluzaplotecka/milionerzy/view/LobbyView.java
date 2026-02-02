@@ -660,12 +660,7 @@ public class LobbyView {
         nameBox.getChildren().addAll(nameLabel, roleLabel);
         HBox.setHgrow(nameBox, Priority.ALWAYS);
         
-        // Status gotowości
-        Label readyLabel = new Label("✓");
-        readyLabel.setFont(Font.font("System", FontWeight.BOLD, 18));
-        readyLabel.setTextFill(Color.web("#27ae60"));
-        
-        row.getChildren().addAll(avatar, nameBox, readyLabel);
+        row.getChildren().addAll(avatar, nameBox);
         row.setUserData(player.id);
         
         return row;
