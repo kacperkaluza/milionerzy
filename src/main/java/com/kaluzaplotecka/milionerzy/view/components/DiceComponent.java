@@ -34,8 +34,8 @@ public class DiceComponent extends VBox {
 
     private final StackPane[] diceStacks = new StackPane[2];
     private final Label[] diceLabels = new Label[2];
-    private final Button rollButton;
-    private final Button saveButton;
+    private final GameButton rollButton = new GameButton("🎲  Losuj", 24, this::roll);
+    private final GameButton saveButton = new GameButton("💾  Zapisz grę", 24, this::showSaveDialog);
     private final Random random = new Random();
     
     private Runnable onRollAction;
@@ -69,18 +69,14 @@ public class DiceComponent extends VBox {
             diceBox.getChildren().add(diceView.stackPane);
         }
         
-        rollButton = new Button("🎲  Losuj");
-        styleButton(rollButton, "#3498db", "#2980b9");
-        rollButton.setOnAction(e -> {
-            if (onRollAction != null) onRollAction.run();
-        });
+        HBox buttonsBox = new HBox(20);
+        buttonsBox.setAlignment(Pos.CENTER);
+        buttonsBox.getChildren().addAll(rollButton, saveButton);
         
-        saveButton = new Button("💾  Zapisz grę");
-        styleButton(saveButton, "#27ae60", "#219a52");
-        saveButton.setStyle(saveButton.getStyle() + "-fx-font-size: 14px; -fx-padding: 8 20;");
-        saveButton.setOnAction(e -> showSaveDialog());
-        
-        getChildren().addAll(diceBox, rollButton, saveButton);
+        rollButton.setTextSize(12);
+    
+        saveButton.setTextSize(12);
+        getChildren().addAll(diceBox, buttonsBox);
     }
     
     private DiceView createDice(int value) {
@@ -107,30 +103,6 @@ public class DiceComponent extends VBox {
         return new DiceView(diceStack, valueLabel);
     }
     
-    private void styleButton(Button btn, String color, String hoverColor) {
-        String baseStyle = 
-            "-fx-background-color: " + color + ";" +
-            "-fx-text-fill: white;" +
-            "-fx-font-size: 18px;" +
-            "-fx-font-weight: bold;" +
-            "-fx-padding: 12 35;" +
-            "-fx-background-radius: 25;" +
-            "-fx-cursor: hand;";
-            
-        String hoverStyle = 
-            "-fx-background-color: " + hoverColor + ";" +
-            "-fx-text-fill: white;" +
-            "-fx-font-size: 18px;" +
-            "-fx-font-weight: bold;" +
-            "-fx-padding: 12 35;" +
-            "-fx-background-radius: 25;" +
-            "-fx-cursor: hand;";
-            
-        btn.setStyle(baseStyle);
-        btn.setOnMouseEntered(e -> btn.setStyle(hoverStyle));
-        btn.setOnMouseExited(e -> btn.setStyle(baseStyle));
-    }
-    
     public void setOnRoll(Runnable param) {
         this.onRollAction = param;
     }
@@ -144,11 +116,19 @@ public class DiceComponent extends VBox {
     }
 
     public void setRollButtonState(boolean enabled, String text) {
-        rollButton.setDisable(!enabled);
+        rollButton.setDisabledStyle(!enabled);
         rollButton.setText(text);
-        rollButton.setOpacity(enabled ? 1.0 : 0.5);
     }
     
+    public int roll() {
+        int d1 = random.nextInt(6) + 1;
+        int d2 = random.nextInt(6) + 1;
+        int result = d1 + d2;
+        animateDiceRoll(result);
+
+        return result;
+    }
+
     public void animateDiceRoll(int sum) {
         for (int i = 0; i < diceStacks.length; i++) {
             StackPane diceStack = diceStacks[i];

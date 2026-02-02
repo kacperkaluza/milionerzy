@@ -20,6 +20,7 @@ import com.kaluzaplotecka.milionerzy.model.Board;
 import com.kaluzaplotecka.milionerzy.model.GameState;
 import com.kaluzaplotecka.milionerzy.model.Player;
 import com.kaluzaplotecka.milionerzy.network.GameMessage;
+import com.kaluzaplotecka.milionerzy.network.NetworkGameEventListener;
 import com.kaluzaplotecka.milionerzy.network.NetworkManager;
 import com.kaluzaplotecka.milionerzy.model.SaveManager;
 import com.kaluzaplotecka.milionerzy.model.tiles.ChanceTile;
@@ -29,6 +30,7 @@ import com.kaluzaplotecka.milionerzy.model.tiles.Tile;
 import com.kaluzaplotecka.milionerzy.view.components.AuctionComponent;
 import com.kaluzaplotecka.milionerzy.view.components.BoardComponent;
 import com.kaluzaplotecka.milionerzy.view.components.DiceComponent;
+import com.kaluzaplotecka.milionerzy.view.components.GameButton;
 import com.kaluzaplotecka.milionerzy.view.components.PlayerPanelComponent;
 
 import java.util.Optional;
@@ -77,6 +79,12 @@ public class GameView implements GameEventListener {
         if (networkManager == null || networkManager.getMode() == NetworkManager.Mode.HOST) {
             this.gameState = new GameState(createBoardModel(), players);
             this.gameState.addEventListener(this);
+            
+            // Register network event listener for host to broadcast events to clients
+            if (networkManager != null && networkManager.getMode() == NetworkManager.Mode.HOST) {
+                GameState gs = this.gameState;
+                this.gameState.addEventListener(new NetworkGameEventListener(networkManager, () -> gs));
+            }
         }
         // Client waits for sync
     }
@@ -253,7 +261,7 @@ public class GameView implements GameEventListener {
     
     public Scene createScene() {
         HBox root = new HBox(10);
-        root.setStyle("-fx-background-color: linear-gradient(to bottom, #88bde7, #dbebea);");
+        root.setStyle(com.kaluzaplotecka.milionerzy.view.utils.UIConstants.GAME_BACKGROUND_GRADIENT);
         root.setAlignment(Pos.CENTER);
         root.setPadding(new Insets(10));
         
@@ -276,7 +284,11 @@ public class GameView implements GameEventListener {
         VBox rightPlayers = new VBox(20);
         rightPlayers.setAlignment(Pos.CENTER);
         if (playerPanels[1] != null) rightPlayers.getChildren().add(playerPanels[1]);
-        Button pauseBtn = createPauseButton();
+        GameButton pauseBtn = new GameButton("| |", 24, 24, 16, this::showPauseDialog);
+        pauseBtn.setPadding(8, 16, 8, 16);
+        pauseBtn.setBorderRadius(100);
+        pauseBtn.setTextColor("#000");
+        pauseBtn.setColor("#fff");
         rightPlayers.getChildren().add(pauseBtn);
         if (playerPanels[3] != null) rightPlayers.getChildren().add(playerPanels[3]);
         
@@ -298,8 +310,7 @@ public class GameView implements GameEventListener {
             rootWrapper.getChildren().add(networkStatusBox);
         }
         
-        Scene scene = new Scene(rootWrapper, 1100, 750);
-        return scene;
+        return com.kaluzaplotecka.milionerzy.view.utils.ViewFactory.createStyledScene(rootWrapper, 1100, 750);
     }
 
     private void saveGame(String saveName) {
@@ -320,23 +331,27 @@ public class GameView implements GameEventListener {
     }
 
     private void rollDice() {
-        if (diceComponent != null) diceComponent.setRollButtonState(false, "Losowanie...");
-        if (networkManager != null && networkManager.getMode() == NetworkManager.Mode.CLIENT) {
-            networkManager.send(new GameMessage(GameMessage.MessageType.ROLL_DICE, playerId));
-        } else {
-            gameState.moveCurrentPlayer();
-        }
-    }
+        if (diceComponent != null) {
+            diceComponent.setRollButtonState(false, "Losowanie...");
+            
+            // Play sound
+            try {
+                SoundManager.getInstance().playSound("dice.mp3");
+            } catch (Exception e) {
+                System.err.println("Failed to play sound: " + e.getMessage());
+            }
 
-    private Button createPauseButton() {
-        Button pauseBtn = new Button("⏸");
-        pauseBtn.setStyle("-fx-background-color: rgba(255,255,255,0.9); -fx-font-size: 28px; -fx-padding: 10; -fx-background-radius: 50; -fx-cursor: hand;");
-        DropShadow shadow = new DropShadow();
-        shadow.setColor(Color.rgb(0, 0, 0, 0.2));
-        shadow.setRadius(10);
-        pauseBtn.setEffect(shadow);
-        pauseBtn.setOnAction(e -> showPauseDialog());
-        return pauseBtn;
+            // Roll using component logic
+            int result = diceComponent.roll();
+            
+            if (networkManager != null && networkManager.getMode() == NetworkManager.Mode.CLIENT) {
+                // Send result to host
+                networkManager.send(new GameMessage(GameMessage.MessageType.ROLL_DICE, playerId, result));
+            } else {
+                // Host plays immediately with this result
+                gameState.moveCurrentPlayer(result);
+            }
+        }
     }
 
     private void showPauseDialog() {
@@ -365,8 +380,21 @@ public class GameView implements GameEventListener {
         Scene scene = createScene();
         stage.setScene(scene);
         stage.setTitle("Milionerzy Świętokrzyskiego - Gra");
-        stage.setResizable(false);
+        stage.setResizable(true);
         stage.show();
+        
+        // Host: broadcast initial game state to all clients
+        if (networkManager != null && networkManager.getMode() == NetworkManager.Mode.HOST && gameState != null) {
+            System.out.println("[HOST] Broadcasting initial GAME_STATE_SYNC to all clients");
+            networkManager.send(new GameMessage(
+                GameMessage.MessageType.GAME_STATE_SYNC,
+                playerId,
+                gameState
+            ));
+        }
+        
+        // Update UI state
+        updateRollButtonState();
     }
 
     public void setGameState(GameState loadedState) {
@@ -468,10 +496,26 @@ public class GameView implements GameEventListener {
         if (event.getType() == GameEvent.Type.TURN_STARTED) {
              Platform.runLater(this::updateRollButtonState);
         }
+        
+        // Host: broadcast state to all clients after any significant event
+        if (networkManager != null && networkManager.getMode() == NetworkManager.Mode.HOST && gameState != null) {
+            networkManager.send(new GameMessage(
+                GameMessage.MessageType.GAME_STATE_SYNC,
+                playerId,
+                gameState
+            ));
+        }
     }
 
     private void updateRollButtonState() {
-        if (diceComponent == null || gameState == null) return;
+        if (diceComponent == null) return;
+        
+        // Client before sync: disable button
+        if (gameState == null) {
+            diceComponent.setRollButtonState(false, "Oczekiwanie...");
+            return;
+        }
+        
         boolean isMyTurn = false;
         Player current = gameState.getCurrentPlayer();
         
