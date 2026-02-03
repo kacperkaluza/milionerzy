@@ -39,6 +39,23 @@ import java.util.Map;
 import java.util.HashMap;
 import java.util.ArrayList;
 
+/**
+ * Główny widok gry - plansza z graczami, kostką i panelami.
+ * 
+ * <p>Odpowiada za:
+ * <ul>
+ *   <li>Wyświetlanie planszy i pionków graczy</li>
+ *   <li>Obsługę interakcji (rzuty kostką, kupno, aukcje)</li>
+ *   <li>Synchronizację stanu gry w trybie sieciowym</li>
+ *   <li>Odtwarzanie animacji ruchu i efektów dźwiękowych</li>
+ * </ul>
+ * 
+ * <p>Implementuje {@link GameEventListener} do reaktywności na zdarzenia gry.
+ * 
+ * @see GameState
+ * @see BoardComponent
+ * @see NetworkManager
+ */
 public class GameView implements GameEventListener {
     
     private Stage stage;

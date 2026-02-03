@@ -16,6 +16,16 @@ import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 
+/**
+ * Widok ustawień aplikacji.
+ * 
+ * <p>Umożliwia konfigurację:
+ * <ul>
+ *   <li>Głośności efektów dźwiękowych</li>
+ * </ul>
+ * 
+ * @see SoundManager
+ */
 public class SettingsView {
     private final Stage stage;
     private final Runnable onBack;

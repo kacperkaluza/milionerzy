@@ -18,6 +18,20 @@ import com.kaluzaplotecka.milionerzy.view.utils.ViewFactory;
 
 import java.util.List;
 
+/**
+ * Widok wczytywania zapisanych gier.
+ * 
+ * <p>Umożliwia:
+ * <ul>
+ *   <li>Przeglądanie listy zapisów</li>
+ *   <li>Wczytanie gry lokalnie (dla jednego gracza)</li>
+ *   <li>Hostowanie wczytanej gry sieciowo</li>
+ *   <li>Usuwanie zapisów</li>
+ * </ul>
+ * 
+ * @see SaveManager
+ * @see GameView
+ */
 public class LoadGameView {
     private final Stage stage;
     private final Runnable onBack;

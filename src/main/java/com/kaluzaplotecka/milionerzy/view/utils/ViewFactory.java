@@ -15,6 +15,14 @@ import javafx.scene.text.FontWeight;
 
 import java.util.List;
 
+/**
+ * Fabryka elementów UI z predefiniowanymi stylami.
+ * 
+ * <p>Zapewnia spójny wygląd w całej aplikacji poprzez
+ * centralizację tworzenia komponentów.
+ * 
+ * @see UIConstants
+ */
 public class ViewFactory {
     
     private ViewFactory() {} // Prevent instantiation

@@ -7,6 +7,12 @@ import javafx.scene.control.Label;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 
+/**
+ * Widok informacji o autorach gry.
+ * 
+ * <p>Wyświetla listę twórców projektu.
+ * 
+ */
 public class AuthorsView {
     private final Stage stage;
     private final Runnable onBack;

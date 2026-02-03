@@ -1,5 +1,12 @@
 package com.kaluzaplotecka.milionerzy.view.utils;
 
+/**
+ * Stałe stylów i kolorów używane w całej aplikacji.
+ * 
+ * <p>Centralizuje definicje kolorów, gradientów i stylów CSS
+ * dla spójnego wyglądu interfejsu.
+ * 
+ */
 public class UIConstants {
     private UIConstants() {} // Prevent instantiation
 

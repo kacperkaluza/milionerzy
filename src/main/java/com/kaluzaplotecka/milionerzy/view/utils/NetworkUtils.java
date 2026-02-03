@@ -4,6 +4,10 @@ import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.util.Enumeration;
 
+/**
+ * Narzędzia sieciowe do pobierania informacji o adresie IP.
+ * 
+ */
 public class NetworkUtils {
     
     private NetworkUtils() {} // Prevent instantiation

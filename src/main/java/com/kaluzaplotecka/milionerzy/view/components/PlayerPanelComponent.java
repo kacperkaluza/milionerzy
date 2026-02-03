@@ -14,6 +14,11 @@ import javafx.scene.text.FontWeight;
 
 import com.kaluzaplotecka.milionerzy.model.Player;
 
+/**
+ * Panel gracza wyświetlający awatar, imię, stan konta i nieruchomości.
+ * 
+ * @see Player
+ */
 public class PlayerPanelComponent extends VBox {
 
     private final Label nameLabel;

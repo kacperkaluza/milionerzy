@@ -20,6 +20,21 @@ import javafx.scene.text.FontWeight;
 import javafx.stage.Stage;
 import javafx.util.Duration;
 
+/**
+ * Główne menu aplikacji - punkt startowy interfejsu użytkownika.
+ * 
+ * <p>Zawiera opcje:
+ * <ul>
+ *   <li>Stwórz grę - utworzenie nowego lobby jako host</li>
+ *   <li>Dołącz do gry - dołączenie do istniejącego lobby jako klient</li>
+ *   <li>Ustawienia - konfiguracja głośności</li>
+ *   <li>Wczytaj grę - kontynuacja zapisanej gry</li>
+ *   <li>Autorzy - informacje o twórcach</li>
+ * </ul>
+ * 
+ * @see LobbyView
+ * @see GameView
+ */
 public class MainMenu extends Application {
 
     private Stage primaryStage;
