@@ -62,7 +62,7 @@ public class MainMenu extends Application {
         int buttonWidth = 200;
         int buttonHeight = 60;
         int fontSize = 24;
-        GameButton createGameBtn = new GameButton("Graj", buttonWidth, buttonHeight, fontSize, () ->onCreateGame());
+        GameButton createGameBtn = new GameButton("Stwórz grę", buttonWidth, buttonHeight, fontSize, () ->onCreateGame());
         GameButton joinGameBtn = new GameButton("Dołącz do gry", buttonWidth, buttonHeight, fontSize, () ->onJoinGame());
         GameButton settingsBtn = new GameButton("Ustawienia", buttonWidth, buttonHeight, fontSize, () ->onSettings());
         GameButton loadGameBtn = new GameButton("Wczytaj grę", buttonWidth, buttonHeight, fontSize, () ->onLoadGame());

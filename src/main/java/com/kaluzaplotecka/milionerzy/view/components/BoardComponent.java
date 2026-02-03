@@ -19,6 +19,8 @@ import javafx.scene.text.TextAlignment;
 import javafx.util.Duration;
 
 import com.kaluzaplotecka.milionerzy.model.Player;
+import com.kaluzaplotecka.milionerzy.model.tiles.PropertyTile;
+import com.kaluzaplotecka.milionerzy.model.tiles.Tile;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -98,6 +100,7 @@ public class BoardComponent extends StackPane {
     private final Pane playerLayer;
     private final Map<Player, Circle> playerPawns;
     private final List<Player> players;
+    private final Map<Integer, StackPane> tileMap = new HashMap<>(); // Przechowywanie kafelków po indeksie
 
     public BoardComponent(List<Player> players) {
         this.players = players;
@@ -155,7 +158,9 @@ public class BoardComponent extends StackPane {
             double x = BOARD_SIZE - CORNER_SIZE - (i + 1) * TILE_WIDTH;
             double y = BOARD_SIZE - TILE_HEIGHT;
             String[] tileData = BOARD_TILES[i + 1];
-            boardContainer.getChildren().add(createTile(x, y, TILE_WIDTH, TILE_HEIGHT, tileData, false));
+            StackPane t = createTile(x, y, TILE_WIDTH, TILE_HEIGHT, tileData, false);
+            boardContainer.getChildren().add(t);
+            tileMap.put(i + 1, t);
         }
         
         // Róg WIĘZIENIE (lewy dolny)
@@ -168,7 +173,9 @@ public class BoardComponent extends StackPane {
             double x = 0;
             double y = BOARD_SIZE - CORNER_SIZE - (i + 1) * TILE_WIDTH;
             String[] tileData = BOARD_TILES[11 + i];
-            boardContainer.getChildren().add(createTile(x, y, TILE_HEIGHT, TILE_WIDTH, tileData, true));
+            StackPane t = createTile(x, y, TILE_HEIGHT, TILE_WIDTH, tileData, true);
+            boardContainer.getChildren().add(t);
+            tileMap.put(11 + i, t);
         }
         
         // Róg DARMOWY PARKING (lewy górny)
@@ -181,7 +188,9 @@ public class BoardComponent extends StackPane {
             double x = CORNER_SIZE + i * TILE_WIDTH;
             double y = 0;
             String[] tileData = BOARD_TILES[21 + i];
-            boardContainer.getChildren().add(createTile(x, y, TILE_WIDTH, TILE_HEIGHT, tileData, false));
+            StackPane t = createTile(x, y, TILE_WIDTH, TILE_HEIGHT, tileData, false);
+            boardContainer.getChildren().add(t);
+            tileMap.put(21 + i, t);
         }
         
         // Róg IDŹ DO WIĘZIENIA (prawy górny)
@@ -194,7 +203,9 @@ public class BoardComponent extends StackPane {
             double x = BOARD_SIZE - TILE_HEIGHT;
             double y = CORNER_SIZE + i * TILE_WIDTH;
             String[] tileData = BOARD_TILES[31 + i];
-            boardContainer.getChildren().add(createTile(x, y, TILE_HEIGHT, TILE_WIDTH, tileData, true));
+            StackPane t = createTile(x, y, TILE_HEIGHT, TILE_WIDTH, tileData, true);
+            boardContainer.getChildren().add(t);
+            tileMap.put(31 + i, t);
         }
         
         // Środkowa część planszy - logo/nazwa gry
@@ -326,7 +337,10 @@ public class BoardComponent extends StackPane {
     
     public void animatePlayerMovement(Player player, int oldPos, int newPos) {
         Circle pawn = playerPawns.get(player);
-        if (pawn == null) return;
+        if (pawn == null) {
+            System.err.println("[BoardComponent] ERROR: No pawn found for player " + player.getUsername());
+            return;
+        }
         
         SequentialTransition seq = new SequentialTransition();
         int steps = newPos - oldPos;
@@ -413,10 +427,16 @@ public class BoardComponent extends StackPane {
         tile.setLayoutY(y);
         tile.setPrefSize(width, height);
         
+        // Save ID (position + data) for updates. 
+        // We can use the position from map iteration if available, or just rely on storing order.
+        // For simplicity in this refactor, let's attach user data or use a map in the class.
+        // But createTile is private helper. Let's make it smarter later or simpler:
+        
         Rectangle bg = new Rectangle(width, height);
         bg.setFill(Color.WHITE);
         bg.setStroke(Color.BLACK);
         bg.setStrokeWidth(0.5);
+        bg.setId("tileBg"); // Helper ID for lookup
         
         VBox content = new VBox(2);
         content.setAlignment(Pos.CENTER);
@@ -482,7 +502,14 @@ public class BoardComponent extends StackPane {
             content.getChildren().addAll(icon, name);
         }
         
-        tile.getChildren().addAll(bg, content);
+        // Ownership / Border indicator (Default hidden)
+        Rectangle ownerBorder = new Rectangle(width - 2, height - 2);
+        ownerBorder.setFill(Color.TRANSPARENT);
+        ownerBorder.setStroke(Color.TRANSPARENT);
+        ownerBorder.setStrokeWidth(3);
+        ownerBorder.setId("ownerBorder");
+        
+        tile.getChildren().addAll(bg, content, ownerBorder);
         return tile;
     }
     
@@ -540,5 +567,56 @@ public class BoardComponent extends StackPane {
 
     public static String[][] getBoardTiles() {
         return BOARD_TILES;
+    }
+    
+    /**
+     * Aktualizuje wygląd pól planszy (własność).
+     */
+    public void refreshTiles(List<Tile> tiles) {
+        if (tiles == null) return;
+        
+        for (Tile t : tiles) {
+            if (t instanceof PropertyTile pt) {
+                StackPane tileView = tileMap.get(pt.getPosition()); // getId() to pozycja
+                if (tileView != null) {
+                    // Znajdź ramkę (ownerBorder)
+                    tileView.getChildren().stream()
+                        .filter(n -> "ownerBorder".equals(n.getId()))
+                        .findFirst()
+                        .ifPresent(node -> {
+                            Rectangle border = (Rectangle) node;
+                            Player owner = pt.getOwner();
+                            if (owner != null) {
+                                // Ustalamy kolor właściciela.
+                                // Możemy to zrobić sprytniej mapując gracza na kolor, 
+                                // ale tutaj pobierzmy z paneli graczy lub przypiszmy (zasada 4 kolorów).
+                                // Ponieważ BoardComponent sam rysuje pionki i zna kolory:
+                                String color = getPlayerColor(owner);
+                                border.setStroke(Color.web(color));
+                            } else {
+                                border.setStroke(Color.TRANSPARENT);
+                            }
+                        });
+                }
+            }
+        }
+    }
+    
+    private String getPlayerColor(Player p) {
+        // Znajdź index gracza w liście
+        int idx = -1;
+        for (int i=0; i<players.size(); i++) {
+             if (players.get(i).getId().equals(p.getId())) {
+                 idx = i;
+                 break;
+             }
+        }
+        return switch (idx % 4) {
+            case 0 -> "#667eea";
+            case 1 -> "#e74c3c";
+            case 2 -> "#27ae60";
+            case 3 -> "#f39c12";
+            default -> "transparent";
+        };
     }
 }

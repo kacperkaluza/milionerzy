@@ -6,9 +6,7 @@ import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
-import javafx.scene.effect.DropShadow;
 import javafx.scene.layout.*;
-import javafx.scene.paint.Color;
 import javafx.stage.Stage;
 import javafx.util.Duration;
 import javafx.animation.Timeline;
@@ -90,6 +88,7 @@ public class GameView implements GameEventListener {
         
         // Initialize AuctionComponent
         this.auctionView = new AuctionComponent();
+        this.auctionView.setLocalPlayerId(playerId);
         setupAuctionCallbacks();
 
         // Initialize GameState
@@ -183,8 +182,16 @@ public class GameView implements GameEventListener {
                     }
                 } else if (msg.getType() == GameMessage.MessageType.MOVE) {
                     handleMove(msg);
-                } else if (networkManager.getMode().equals(NetworkManager.Mode.HOST) && gameState != null) {
-                     gameState.processNetworkMessage(msg, true, networkManager);
+                }
+                
+                // Allow both Host and Client to process remaining messages in GameState
+                // (e.g. AUCTION_*, END_TURN, NEXT_TURN)
+                // Allow both Host and Client to process remaining messages in GameState
+                // (e.g. AUCTION_*, END_TURN, NEXT_TURN)
+                if (gameState != null) {
+                     System.out.println("client debug processing msg: " + msg.getType() + " sender: " + msg.getSenderId());
+                     boolean isHost = networkManager.getMode() == NetworkManager.Mode.HOST;
+                     gameState.processNetworkMessage(msg, isHost, networkManager);
                 }
             });
         });
@@ -221,30 +228,31 @@ public class GameView implements GameEventListener {
          
          Optional<ButtonType> result = alert.showAndWait();
          if (result.isPresent() && result.get() == buyButton) {
-             if (networkManager != null) {
+             boolean isClient = networkManager != null && networkManager.getMode() == NetworkManager.Mode.CLIENT;
+             if (isClient) {
                  networkManager.send(new GameMessage(GameMessage.MessageType.BUY_PROPERTY, playerId));
-             } else if (gameState != null) {
-                 // Local game: directly update game state
-                 Player currentPlayer = gameState.getPlayers().stream()
-                     .filter(p -> p.getId().equals(playerId))
-                     .findFirst()
-                     .orElse(null);
-                 if (currentPlayer != null && gameState.buyCurrentProperty()) {
-                     gameState.fireEvent(new GameEvent(
-                         GameEvent.Type.PROPERTY_BOUGHT,
-                         currentPlayer,
-                         tile,
-                         currentPlayer.getUsername() + " kupił " + tile.getCity()
-                     ));
-                     gameState.nextTurn();
+             } else {
+                 // Host or Local game: directly update game state
+                 if (gameState != null) {
+                     Player currentPlayer = gameState.getPlayers().stream()
+                         .filter(p -> p.getId().equals(playerId))
+                         .findFirst()
+                         .orElse(null);
+                     if (currentPlayer != null && gameState.buyCurrentProperty()) {
+                         // Event fired by GameState; just trigger next turn
+                         gameState.nextTurn();
+                     }
                  }
              }
          } else {
-             if (networkManager != null) {
+             boolean isClient = networkManager != null && networkManager.getMode() == NetworkManager.Mode.CLIENT;
+             if (isClient) {
                  networkManager.send(new GameMessage(GameMessage.MessageType.DECLINE_PURCHASE, playerId));
-             } else if (gameState != null) {
-                 // Local game: start auction
-                 gameState.startAuction(tile);
+             } else {
+                 // Host or Local game: start auction
+                 if (gameState != null) {
+                     gameState.startAuction(tile);
+                 }
              }
          }
     }
@@ -273,6 +281,10 @@ public class GameView implements GameEventListener {
              if (index >= 0 && index < playerPanels.length && playerPanels[index] != null) {
                  playerPanels[index].update(p);
              }
+        }
+        
+        if (gameState != null && boardComponent != null) {
+            boardComponent.refreshTiles(gameState.getBoard().getTiles());
         }
     }
     
@@ -358,8 +370,16 @@ public class GameView implements GameEventListener {
                 System.err.println("Failed to play sound: " + e.getMessage());
             }
 
-            // Roll using component logic
-            int result = diceComponent.roll();
+            final int result;
+            if (networkManager != null && networkManager.getMode() == NetworkManager.Mode.CLIENT) {
+                // Client mode: use local dice component logic
+                result = diceComponent.roll();
+            } else {
+                // Host/Local: use GameState logic (Mockable)
+                result = gameState.rollDice();
+                // Update visual
+                diceComponent.animateDiceRoll(result);
+            }
             
             if (networkManager != null && networkManager.getMode() == NetworkManager.Mode.CLIENT) {
                 // Send result to host
@@ -402,7 +422,6 @@ public class GameView implements GameEventListener {
         
         // Host: broadcast initial game state to all clients
         if (networkManager != null && networkManager.getMode() == NetworkManager.Mode.HOST && gameState != null) {
-            System.out.println("[HOST] Broadcasting initial GAME_STATE_SYNC to all clients");
             networkManager.send(new GameMessage(
                 GameMessage.MessageType.GAME_STATE_SYNC,
                 playerId,
@@ -499,7 +518,8 @@ public class GameView implements GameEventListener {
                 Player p = (Player) event.getSource();
                 PropertyTile tile = (PropertyTile) event.getData();
                 Platform.runLater(() -> {
-                    if (p.getId().equals(playerId)) {
+                    // Allow if local game (networkManager == null) or if it's this client's turn
+                    if (networkManager == null || p.getId().equals(playerId)) {
                         showPropertyPurchaseDialog(tile);
                     } 
                 });
@@ -543,10 +563,17 @@ public class GameView implements GameEventListener {
         }
         
         if (isMyTurn) {
-            diceComponent.setRollButtonState(true, "🎲  Losuj");
+            if (gameState.hasRolled()) {
+                 diceComponent.setRollButtonState(false, "Rzucono");
+            } else {
+                 diceComponent.setRollButtonState(true, "🎲  Losuj");
+            }
         } else {
             String name = current != null ? current.getUsername() : "";
             diceComponent.setRollButtonState(false, "Tura: " + name);
         }
+    }
+    public GameState getGameState() {
+        return gameState;
     }
 }

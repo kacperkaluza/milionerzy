@@ -15,6 +15,13 @@ import javafx.scene.effect.DropShadow;
 
 import java.util.function.Consumer;
 
+/**
+ * Komponent interfejsu aukcji nieruchomości.
+ * 
+ * <p>Wyświetla aktualną cenę, lidera i przyciski do licytacji.
+ * 
+ * @see com.kaluzaplotecka.milionerzy.model.Auction
+ */
 public class AuctionComponent extends StackPane {
     
     private final Label titleLabel;
@@ -131,17 +138,31 @@ public class AuctionComponent extends StackPane {
         updateUI();
     }
     
+    private String localPlayerId;
+
+    public void setLocalPlayerId(String playerId) {
+        this.localPlayerId = playerId;
+    }
+
     private void updateUI() {
         if (currentAuction == null) return;
         
         titleLabel.setText("LICYTACJA: " + currentAuction.getProperty().getCity());
         priceLabel.setText(currentAuction.getHighestBid() + " zł");
         
+        boolean isLeader = false;
         if (currentAuction.getHighestBidder() != null) {
             leaderLabel.setText("Prowadzi: " + currentAuction.getHighestBidder().getUsername());
+            if (localPlayerId != null && currentAuction.getHighestBidder().getId().equals(localPlayerId)) {
+                isLeader = true;
+            }
         } else {
             leaderLabel.setText("Cena wywoławcza: " + currentAuction.getMinimumBid() + " zł");
         }
+        
+        // Disable bid buttons if I am the leader
+        bid10Button.setDisable(isLeader);
+        bid100Button.setDisable(isLeader);
     }
     
     public void setOnBid(Consumer<Integer> onBid) {

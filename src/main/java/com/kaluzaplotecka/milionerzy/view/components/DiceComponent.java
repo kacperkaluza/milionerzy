@@ -20,6 +20,12 @@ import javafx.util.Duration;
 import java.util.Random;
 import java.util.function.Consumer;
 
+/**
+ * Komponent kostki do gry z animacjami i przyciskami.
+ * 
+ * <p>Obsługuje rzuty kostką, animacje oraz zapis gry.
+ * 
+ */
 public class DiceComponent extends VBox {
 
     private static class DiceView {
@@ -34,7 +40,7 @@ public class DiceComponent extends VBox {
 
     private final StackPane[] diceStacks = new StackPane[2];
     private final Label[] diceLabels = new Label[2];
-    private final GameButton rollButton = new GameButton("🎲  Losuj", 24, this::roll);
+    private final GameButton rollButton = new GameButton("🎲  Losuj", 24, this::handleRollClick);
     private final GameButton saveButton = new GameButton("💾  Zapisz grę", 24, this::showSaveDialog);
     private final Random random = new Random();
     
@@ -116,17 +122,29 @@ public class DiceComponent extends VBox {
     }
 
     public void setRollButtonState(boolean enabled, String text) {
-        rollButton.setDisabledStyle(!enabled);
+        System.out.println("DEBUG: setRollButtonState: " + enabled + " text: " + text);
+        rollButton.setDisable(!enabled);
         rollButton.setText(text);
     }
     
     public int roll() {
+        System.out.println("DEBUG: DiceComponent roll() called");
         int d1 = random.nextInt(6) + 1;
         int d2 = random.nextInt(6) + 1;
         int result = d1 + d2;
-        animateDiceRoll(result);
+        // Animation is triggered by GameView via events (DICE_ROLLED/DICE_RESULT)
+        // animateDiceRoll(result); 
 
         return result;
+    }
+    
+    private void handleRollClick() {
+        System.out.println("DEBUG: DiceComponent handleRollClick");
+        if (onRollAction != null) {
+            onRollAction.run();
+        } else {
+            System.out.println("DEBUG: onRollAction is null!");
+        }
     }
 
     public void animateDiceRoll(int sum) {
