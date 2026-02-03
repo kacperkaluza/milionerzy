@@ -19,6 +19,26 @@ import com.kaluzaplotecka.milionerzy.model.cards.EventCard;
 import com.kaluzaplotecka.milionerzy.model.tiles.PropertyTile;
 import com.kaluzaplotecka.milionerzy.model.tiles.Tile;
 
+/**
+ * Główna klasa zarządzająca stanem gry.
+ * 
+ * <p>Implementuje wzorzec Fasady (Facade), delegując odpowiedzialności
+ * do wyspecjalizowanych managerów:
+ * <ul>
+ *   <li>{@link TurnManager} - zarządzanie turami i rundami</li>
+ *   <li>{@link MovementManager} - ruch graczy i rzuty kostką</li>
+ *   <li>{@link BankManager} - operacje bankowe i bankructwa</li>
+ *   <li>{@link PropertyManager} - handel i aukcje nieruchomości</li>
+ * </ul>
+ * 
+ * <p>Klasa implementuje również wzorzec Observer dla systemu zdarzeń,
+ * umożliwiając reagowanie na zmiany stanu gry (np. przez UI lub sieć).
+ * 
+ * @see TurnManager
+ * @see MovementManager
+ * @see BankManager
+ * @see PropertyManager
+ */
 public class GameState implements Serializable {
     private static final long serialVersionUID = 1L;
     
@@ -58,6 +78,10 @@ public class GameState implements Serializable {
         return turnManager.getCurrentPlayer();
     }
 
+    public boolean hasRolled() {
+        return turnManager.hasRolled();
+    }
+
     public int rollDice(){
         return movementManager.rollDice();
     }
@@ -71,10 +95,12 @@ public class GameState implements Serializable {
     }
 
     public void moveCurrentPlayer(){
+        turnManager.setHasRolled(true);
         movementManager.moveCurrentPlayer(this);
     }
 
     public void moveCurrentPlayer(int steps){
+        turnManager.setHasRolled(true);
         movementManager.moveCurrentPlayer(this, steps);
     }
 
@@ -256,6 +282,10 @@ public class GameState implements Serializable {
     
     public void passAuction(Player player) {
         propertyManager.passAuction(this, player);
+        if (!hasActiveAuction()) {
+            // Auction ended, turn should pass
+            nextTurn();
+        }
     }
     
     public void endAuction() {
@@ -305,6 +335,8 @@ public class GameState implements Serializable {
                             // Fallback: serwer losuje
                             moveCurrentPlayer();
                         }
+                        
+                        // Mark rolled handled by moveCurrentPlayer
                         processed = true;
                     } else {
                         System.out.println("[DEBUG ROLL_DICE] ID mismatch: not current player's turn!");
@@ -363,6 +395,7 @@ public class GameState implements Serializable {
                             placeBid(bidder, amount);
                             processed = true;
                         } else if (payload instanceof String s && "pass".equals(s)) {
+                            passAuction(bidder);
                             processed = true;
                         }
                     }
@@ -370,12 +403,14 @@ public class GameState implements Serializable {
                     if (hasActiveAuction()) {
                        String senderId = msg.getSenderId();
                        Object payload = msg.getPayload();
+                       System.out.println("GameState Client AUCTION_BID: sender=" + senderId + " payload=" + payload);
                        Player bidder = getPlayers().stream()
                             .filter(p -> p.getId().equals(senderId))
                             .findFirst()
                             .orElse(null);
                             
                        if (bidder != null && payload instanceof Integer amount) {
+                           System.out.println("GameState Client: placing bid for " + bidder.getUsername());
                            propertyManager.getCurrentAuction().placeBid(bidder, amount);
                            
                            fireEvent(new GameEvent(
@@ -384,6 +419,8 @@ public class GameState implements Serializable {
                                 amount,
                                 bidder.getUsername() + " licytuje: " + amount
                            ));
+                       } else {
+                           System.out.println("GameState Client: Bidder not found or invalid payload. Bidder=" + (bidder==null?"null":bidder.getId()));
                        }
                     }
                 }

@@ -56,10 +56,22 @@ public class Auction implements Serializable {
      * @return true jeśli oferta została przyjęta
      */
     public boolean placeBid(Player bidder, int amount) {
-        if (status != Status.ACTIVE) return false;
-        if (!participants.contains(bidder)) return false;
-        if (passedPlayers.contains(bidder)) return false;
-        if (bidder.getMoney() < amount) return false;
+        if (status != Status.ACTIVE) {
+            System.out.println("DEBUG: placeBid failed - Status not ACTIVE: " + status);
+            return false;
+        }
+        if (!participants.contains(bidder)) {
+            System.out.println("DEBUG: placeBid failed - Bidder " + bidder.getId() + " not in participants: " + participants);
+            return false;
+        }
+        if (passedPlayers.contains(bidder)) {
+             System.out.println("DEBUG: placeBid failed - Bidder " + bidder.getId() + " already passed.");
+             return false;
+        }
+        if (bidder.getMoney() < amount) {
+             System.out.println("DEBUG: placeBid failed - Not enough money.");
+             return false;
+        }
         
         // Pierwsza oferta musi być >= minimumBid
         if (highestBid == 0 && amount < minimumBid) return false;
@@ -77,8 +89,15 @@ public class Auction implements Serializable {
      * @param player gracz który pasuje
      */
     public void pass(Player player) {
-        if (status != Status.ACTIVE) return;
-        if (!participants.contains(player)) return;
+        System.out.println("DEBUG: Auction.pass for " + player.getId());
+        if (status != Status.ACTIVE) {
+             System.out.println("DEBUG: Auction.pass failed - not active");
+             return;
+        }
+        if (!participants.contains(player)) {
+             System.out.println("DEBUG: Auction.pass failed - player not in participants " + participants);
+             return;
+        }
         if (!passedPlayers.contains(player)) {
             passedPlayers.add(player);
         }

@@ -7,11 +7,33 @@ import com.kaluzaplotecka.milionerzy.network.GameMessage.MessageType;
 
 import java.util.function.Supplier;
 
+/**
+ * Listener zdarzeń gry odpowiedzialny za synchronizację sieciową.
+ * 
+ * <p>Nasłuchuje na zdarzenia gry i automatycznie rozsyła je do
+ * wszystkich połączonych klientów. Działa tylko w trybie hosta.
+ * 
+ * <p>Główne funkcjonalności:
+ * <ul>
+ *   <li>Mapowanie zdarzeń gry na wiadomości sieciowe</li>
+ *   <li>Rozgłaszanie stanu gry przy zmianie tury</li>
+ *   <li>Synchronizacja aukcji, ruchu i zmian pieniędzy</li>
+ * </ul>
+ * 
+ * @see GameEventListener
+ * @see NetworkManager
+ */
 public class NetworkGameEventListener implements GameEventListener {
 
     private final NetworkManager networkManager;
     private final Supplier<GameState> gameStateSupplier;
 
+    /**
+     * Tworzy nowy listener zdarzeń sieciowych.
+     *
+     * @param networkManager menedżer sieci do wysyłania wiadomości
+     * @param gameStateSupplier dostawca aktualnego stanu gry
+     */
     public NetworkGameEventListener(NetworkManager networkManager, Supplier<GameState> gameStateSupplier) {
         this.networkManager = networkManager;
         this.gameStateSupplier = gameStateSupplier;

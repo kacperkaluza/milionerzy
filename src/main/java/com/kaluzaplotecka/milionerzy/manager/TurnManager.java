@@ -5,20 +5,45 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Zarządza kolejnością tur i przebiegiem rund w grze.
+ * 
+ * <p>Klasa odpowiada za:
+ * <ul>
+ *   <li>Śledzenie aktualnego gracza</li>
+ *   <li>Przechodzenie do następnej tury</li>
+ *   <li>Zliczanie rund</li>
+ *   <li>Obsługę rzutu kostką (flaga hasRolled)</li>
+ *   <li>Usuwanie graczy (np. po bankructwie)</li>
+ * </ul>
+ * 
+ * <p><b>Uwaga:</b> Klasa nie jest thread-safe. W grze sieciowej wymagana jest
+ * zewnętrzna synchronizacja.
+ * 
+ * @see com.kaluzaplotecka.milionerzy.model.GameState
+ * @see Player
+ */
 public class TurnManager implements Serializable {
     private static final long serialVersionUID = 1L;
     
-    // Players list is managed here now
+    /** Lista graczy w grze. */
     private List<Player> players;
+    
+    /** Indeks aktualnego gracza. */
     private int currentPlayerIndex;
+    
+    /** Numer aktualnej rundy. */
     private int roundNumber;
+    
+    /** Flaga określająca, czy aktualny gracz już rzucał kostką. */
+    private boolean hasRolled;
 
     /**
-     * Creates a new TurnManager with the given list of players.
+     * Tworzy nowy menedżer tur z podaną listą graczy.
      * 
-     * @param players the list of players (must not be null; may be empty for fallback scenarios
-     *                like corrupted save files, though an empty list results in a non-functional game state)
-     * @throws IllegalArgumentException if players is null
+     * @param players lista graczy (nie może być null; może być pusta dla scenariuszy 
+     *                awaryjnych jak uszkodzone pliki zapisu)
+     * @throws IllegalArgumentException jeśli players jest null
      */
     public TurnManager(List<Player> players) {
         if (players == null) {
@@ -27,28 +52,39 @@ public class TurnManager implements Serializable {
         this.players = new ArrayList<>(players);
         this.currentPlayerIndex = 0;
         this.roundNumber = 0;
+        this.hasRolled = false;
     }
 
+    /**
+     * Zwraca aktualnego gracza.
+     *
+     * @return aktualny gracz lub {@code null} jeśli lista graczy jest pusta
+     */
     public Player getCurrentPlayer() {
         if (players.isEmpty()) return null;
         return players.get(currentPlayerIndex);
     }
     
+    /**
+     * Zwraca kopię listy graczy.
+     *
+     * @return kopia listy graczy
+     */
     public List<Player> getPlayers() {
         return new ArrayList<>(players);
     }
 
     /**
-     * Advances to the next turn.
+     * Przechodzi do następnej tury.
      * 
-     * Note: This class is not thread-safe. If GameState is accessed from multiple threads
-     * (e.g., in a networked game with concurrent message processing), external synchronization
-     * is required to prevent race conditions.
+     * <p>Resetuje flagę rzutu kostką i przesuwa wskaźnik na następnego gracza.
+     * Gdy wskaźnik wraca do pierwszego gracza, zwiększa numer rundy.
      * 
-     * @return true if a new round started
+     * @return {@code true} jeśli rozpoczęła się nowa runda
      */
     public boolean nextTurn() {
         if (players.isEmpty()) return false;
+        hasRolled = false;
         currentPlayerIndex = (currentPlayerIndex + 1) % players.size();
         if (currentPlayerIndex == 0) {
             roundNumber++;
@@ -57,23 +93,52 @@ public class TurnManager implements Serializable {
         return false;
     }
 
+    /**
+     * Zwraca numer aktualnej rundy.
+     *
+     * @return numer rundy
+     */
     public int getRoundNumber() {
         return roundNumber;
     }
+
+    /**
+     * Sprawdza, czy aktualny gracz już rzucał kostką w tej turze.
+     *
+     * @return {@code true} jeśli gracz już rzucał
+     */
+    public boolean hasRolled() {
+        return hasRolled;
+    }
+
+    /**
+     * Ustawia flagę rzutu kostką.
+     *
+     * @param hasRolled nowa wartość flagi
+     */
+    public void setHasRolled(boolean hasRolled) {
+        this.hasRolled = hasRolled;
+    }
     
     /**
-     * Sets the round number. Used by GameState when migrating old saves.
-     * @param roundNumber the round number to set
+     * Ustawia numer rundy.
+     * 
+     * <p>Używane przez GameState przy migracji starych zapisów.
+     *
+     * @param roundNumber numer rundy do ustawienia
      */
     public void setRoundNumber(int roundNumber) {
         this.roundNumber = roundNumber;
     }
     
     /**
-     * Sets the current player by their ID. Used by clients to synchronize turn state
-     * when receiving turn changes from the host.
-     * @param playerId the ID of the player to set as current
-     * @return true if the player was found and set as current, false otherwise
+     * Ustawia aktualnego gracza na podstawie jego ID.
+     * 
+     * <p>Używane przez klientów do synchronizacji stanu tury
+     * przy odbieraniu zmian tury od hosta.
+     *
+     * @param playerId ID gracza do ustawienia jako aktualny
+     * @return {@code true} jeśli gracz został znaleziony i ustawiony
      */
     public boolean setCurrentPlayerById(String playerId) {
         if (playerId == null) return false;
@@ -86,15 +151,21 @@ public class TurnManager implements Serializable {
         return false;
     }
     
+    /**
+     * Usuwa gracza z gry.
+     * 
+     * <p>Automatycznie dostosowuje indeks aktualnego gracza,
+     * jeśli usunięty gracz był przed lub na pozycji aktualnego.
+     *
+     * @param p gracz do usunięcia
+     */
     public void removePlayer(Player p) {
         int removedIndex = players.indexOf(p);
         if (removedIndex >= 0) {
             players.remove(removedIndex);
-            // Adjust index if necessary
             if (removedIndex <= currentPlayerIndex && currentPlayerIndex > 0) {
                 currentPlayerIndex--;
             }
-            // Sanity check
             if (players.isEmpty()) {
                 currentPlayerIndex = 0;
             } else {
@@ -103,10 +174,22 @@ public class TurnManager implements Serializable {
         }
     }
     
+    /**
+     * Sprawdza, czy gra się zakończyła.
+     * 
+     * <p>Gra kończy się, gdy pozostał maksymalnie jeden gracz.
+     *
+     * @return {@code true} jeśli gra się zakończyła
+     */
     public boolean isGameOver() {
         return players.size() <= 1;
     }
     
+    /**
+     * Zwraca zwycięzcę gry.
+     *
+     * @return zwycięzca (ostatni pozostały gracz) lub {@code null}
+     */
     public Player getWinner() {
         if (players.isEmpty()) return null;
         return players.get(0);

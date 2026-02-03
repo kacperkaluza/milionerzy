@@ -9,14 +9,41 @@ import com.kaluzaplotecka.milionerzy.model.tiles.PropertyTile;
 import com.kaluzaplotecka.milionerzy.model.tiles.Tile;
 import java.io.Serializable;
 
+/**
+ * Zarządza operacjami na nieruchomościach: kupno, handel, aukcje.
+ * 
+ * <p>Klasa odpowiada za:
+ * <ul>
+ *   <li>Sprawdzanie możliwości zakupu nieruchomości</li>
+ *   <li>Realizację zakupu nieruchomości</li>
+ *   <li>System handlu między graczami (propozycje, akceptacje, odrzucenia)</li>
+ *   <li>System aukcji nieruchomości</li>
+ * </ul>
+ * 
+ * @see TradeOffer
+ * @see Auction
+ * @see PropertyTile
+ */
 public class PropertyManager implements Serializable {
     private static final long serialVersionUID = 1L;
     
+    /** Aktualnie oczekująca propozycja wymiany. */
     private TradeOffer pendingTrade;
+    
+    /** Aktualnie trwająca aukcja. */
     private Auction currentAuction;
     
+    /**
+     * Tworzy nowy menedżer nieruchomości.
+     */
     public PropertyManager() {}
 
+    /**
+     * Sprawdza, czy aktualny gracz może kupić nieruchomość, na której stoi.
+     *
+     * @param game stan gry
+     * @return {@code true} jeśli gracz może kupić nieruchomość
+     */
     public boolean canCurrentPlayerBuy(GameState game) {
         Player p = game.getCurrentPlayer();
         if (p == null) return false;
@@ -27,6 +54,12 @@ public class PropertyManager implements Serializable {
         return p.getMoney() >= prop.getPrice();
     }
 
+    /**
+     * Próbuje kupić nieruchomość dla aktualnego gracza.
+     *
+     * @param game stan gry
+     * @return {@code true} jeśli zakup się powiódł
+     */
     public boolean buyCurrentProperty(GameState game) {
         Player p = game.getCurrentPlayer();
         if (p == null) return false;
@@ -34,12 +67,18 @@ public class PropertyManager implements Serializable {
         if (!(t instanceof PropertyTile)) return false;
         PropertyTile prop = (PropertyTile) t;
         
-        boolean result = prop.buy(p);
-        return result;
+        return prop.buy(p);
     }
     
-    // === TRADES ===
+    // ==================== HANDEL ====================
 
+    /**
+     * Proponuje wymianę innemu graczowi.
+     *
+     * @param game stan gry
+     * @param offer propozycja wymiany
+     * @return {@code true} jeśli propozycja została złożona
+     */
     public boolean proposeTrade(GameState game, TradeOffer offer) {
         if (offer == null) return false;
         if (pendingTrade != null) return false;
@@ -55,6 +94,12 @@ public class PropertyManager implements Serializable {
         return true;
     }
 
+    /**
+     * Akceptuje oczekującą wymianę.
+     *
+     * @param game stan gry
+     * @return {@code true} jeśli wymiana została wykonana pomyślnie
+     */
     public boolean acceptTrade(GameState game) {
         if (pendingTrade == null) return false;
         
@@ -71,6 +116,12 @@ public class PropertyManager implements Serializable {
         return success;
     }
 
+    /**
+     * Odrzuca oczekującą wymianę.
+     *
+     * @param game stan gry
+     * @return {@code true} jeśli wymiana została odrzucona
+     */
     public boolean rejectTrade(GameState game) {
         if (pendingTrade == null) return false;
         
@@ -85,6 +136,12 @@ public class PropertyManager implements Serializable {
         return true;
     }
 
+    /**
+     * Anuluje oczekującą wymianę (przez proponującego).
+     *
+     * @param game stan gry
+     * @return {@code true} jeśli wymiana została anulowana
+     */
     public boolean cancelTrade(GameState game) {
         if (pendingTrade == null) return false;
         
