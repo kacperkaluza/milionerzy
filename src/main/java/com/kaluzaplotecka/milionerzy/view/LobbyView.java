@@ -317,7 +317,7 @@ public class LobbyView {
         
         try {
             if (isHost) {
-                networkManager.startHost();
+                networkManager.startHost(roomCode);
                 Platform.runLater(() -> {
                     statusLabel.setText("✅ Host aktywny • Port " + NetworkManager.DEFAULT_PORT);
                     statusLabel.setTextFill(Color.web(UIConstants.SUCCESS_COLOR));
@@ -328,7 +328,7 @@ public class LobbyView {
                 new Thread(() -> {
                     try {
                         String targetHost = (hostAddress != null && !hostAddress.isEmpty()) ? hostAddress : "localhost";
-                        networkManager.connectToHost(targetHost, NetworkManager.DEFAULT_PORT, playerName);
+                        networkManager.connectToHost(targetHost, NetworkManager.DEFAULT_PORT, playerName, roomCode);
                         Platform.runLater(() -> {
                             statusLabel.setText("✅ Połączono z hostem: " + targetHost);
                             statusLabel.setTextFill(Color.web(UIConstants.SUCCESS_COLOR));

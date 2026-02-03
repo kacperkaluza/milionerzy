@@ -75,11 +75,19 @@ public class NetworkManager {
     /**
      * Uruchamia serwer na podanym porcie.
      */
-    public void startHost(int port) throws IOException {
+    private String roomCode;
+
+    // === TRYB HOSTA (SERWERA) ===
+    
+    /**
+     * Uruchamia serwer na podanym porcie.
+     */
+    public void startHost(int port, String roomCode) throws IOException {
         if (running) throw new IllegalStateException("NetworkManager już działa");
         
         mode = Mode.HOST;
         running = true;
+        this.roomCode = roomCode;
         serverSocket = new ServerSocket(port);
         serverExecutor = Executors.newCachedThreadPool(r -> {
             Thread thread = new Thread(r);
@@ -107,11 +115,11 @@ public class NetworkManager {
             }
         });
         
-        System.out.println("Host uruchomiony na porcie " + port);
+        System.out.println("Host uruchomiony na porcie " + port + " kod pokoju: " + roomCode);
     }
     
-    public void startHost() throws IOException {
-        startHost(DEFAULT_PORT);
+    public void startHost(String roomCode) throws IOException {
+        startHost(DEFAULT_PORT, roomCode);
     }
     
     // === TRYB KLIENTA ===
@@ -119,7 +127,7 @@ public class NetworkManager {
     /**
      * Łączy się z hostem.
      */
-    public void connectToHost(String host, int port, String playerName) throws IOException {
+    public void connectToHost(String host, int port, String playerName, String roomCode) throws IOException {
         if (running) throw new IllegalStateException("NetworkManager już działa");
         
         mode = Mode.CLIENT;
@@ -129,8 +137,9 @@ public class NetworkManager {
         clientOut = new ObjectOutputStream(clientSocket.getOutputStream());
         clientIn = new ObjectInputStream(clientSocket.getInputStream());
         
-        // Wysyłamy informację o połączeniu
-        send(new GameMessage(GameMessage.MessageType.CONNECT, playerId, playerName));
+        // Wysyłamy informację o połączeniu z kodem pokoju
+        // Payload: String[] { roomCode, playerName }
+        send(new GameMessage(GameMessage.MessageType.CONNECT, playerId, new String[]{roomCode, playerName}));
         
         // Wątek nasłuchujący
         clientThread = new Thread(() -> {
@@ -170,9 +179,128 @@ public class NetworkManager {
         System.out.println("Połączono z hostem " + host + ":" + port);
     }
     
-    public void connectToHost(String host) throws IOException {
-        connectToHost(host, DEFAULT_PORT, "Player");
+    public void connectToHost(String host, String playerName, String roomCode) throws IOException {
+        connectToHost(host, DEFAULT_PORT, playerName, roomCode);
     }
+
+    // ... (send, resendMessage, sendTo remain the same) ...
+
+// ... inside ClientHandler class ...
+
+        @Override
+        public void run() {
+            try {
+                out = new ObjectOutputStream(socket.getOutputStream());
+                in = new ObjectInputStream(socket.getInputStream());
+                
+                while (running && !socket.isClosed()) {
+                    GameMessage msg = (GameMessage) in.readObject();
+                    
+                    // Zapisz ID gracza przy pierwszym połączeniu
+                    if (msg.getType() == GameMessage.MessageType.CONNECT) {
+                        boolean valid = false;
+                        String playerName = "Unknown";
+                        
+                        Object payload = msg.getPayload();
+                        if (payload instanceof String[] parts && parts.length >= 2) {
+                            String code = parts[0];
+                            playerName = parts[1];
+                            
+                            // Validate Room Code
+                            if (NetworkManager.this.roomCode != null && !NetworkManager.this.roomCode.equals(code)) {
+                                System.out.println("Odrzucono połączenie: nieprawidłowy kod pokoju. Otrzymano: " + code + ", Oczekiwano: " + NetworkManager.this.roomCode);
+                                send(new GameMessage(GameMessage.MessageType.DISCONNECT, NetworkManager.this.playerId, "Invalid Room Code"));
+                                close();
+                                return;
+                            }
+                            valid = true;
+                        } else if (payload instanceof String name) {
+                            // Support legacy/simple connection if code validation disabled (optional)
+                            // or just treat as invalid if code is required
+                             // For now, if we have a roomCode set, we enforce it.
+                            if (NetworkManager.this.roomCode != null) {
+                                System.out.println("Odrzucono połączenie: brak kodu pokoju (legacy format).");
+                                send(new GameMessage(GameMessage.MessageType.DISCONNECT, NetworkManager.this.playerId, "Room Code Required"));
+                                close();
+                                return;
+                            }
+                            playerName = name;
+                            valid = true;
+                        }
+                        
+                        if (valid) {
+                            this.playerId = msg.getSenderId();
+                            
+                            // Update payload to just playerName for the app handlers to consume easily?
+                            // Or let handlers handle payload change. GameView/LobbyView assumes payload is String name.
+                            // We should probably send a CONNECT notification with just name to the app, 
+                            // but the message object is immutable-ish. 
+                            // We can construct a new internal message for the handler.
+                            
+                            GameMessage internalMsg = new GameMessage(GameMessage.MessageType.CONNECT, msg.getSenderId(), playerName);
+                            
+                            // Jeśli mamy providera stanu (jesteśmy hostem), wyślij stan gry
+                            if (gameStateProvider != null) {
+                                GameState currentState = gameStateProvider.get();
+                                if (currentState != null) {
+                                    send(new GameMessage(
+                                        GameMessage.MessageType.GAME_STATE_SYNC,
+                                        NetworkManager.this.playerId,
+                                        this.playerId, // Wyślij tylko do tego klienta
+                                        currentState
+                                    ));
+                                }
+                            }
+                            
+                            // Przekaż do handlera hosta (używając uproszczonej wiadomości z nazwą gracza)
+                            if (messageHandler != null) {
+                                messageHandler.accept(internalMsg);
+                            }
+                            
+                            // Rozgłoś do innych klientów (jeśli broadcast) - ale broadcastuj ORYGINALNĄ wiadomość? 
+                            // Nie, lepiej broadcastować imię.
+                            // Oryginalna wiadomość z kodem nie musi być broadcastowana.
+                            // Broadcastujmy CONNECT z nazwą gracza.
+                            GameMessage broadcastMsg = new GameMessage(GameMessage.MessageType.CONNECT, msg.getSenderId(), playerName);
+                            broadcastMsg.setBroadcast(true);
+
+                            for (ClientHandler other : clients) {
+                                if (other != this) {
+                                    other.send(broadcastMsg);
+                                }
+                            }
+                        }
+                    } else {
+                        // Inne wiadomości
+                         // Przekaż do handlera hosta
+                        if (messageHandler != null) {
+                            messageHandler.accept(msg);
+                        }
+                        
+                        // Rozgłoś do innych klientów (jeśli broadcast)
+                        if (msg.isBroadcast()) {
+                            for (ClientHandler other : clients) {
+                                if (other != this) {
+                                    other.send(msg);
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (EOFException e) {
+                // Klient się rozłączył
+            } catch (IOException | ClassNotFoundException e) {
+                if (running) {
+                    System.err.println("Błąd klienta: " + e.getMessage());
+                }
+            } finally {
+                close();
+                clients.remove(this);
+                if (connectionHandler != null && playerId != null) {
+                    connectionHandler.accept("Gracz " + playerId + " rozłączony");
+                }
+            }
+        }
     
     /**
      * Wysyła wiadomość. Host broadcastuje do wszystkich klientów,
@@ -354,32 +482,76 @@ public class NetworkManager {
                     
                     // Zapisz ID gracza przy pierwszym połączeniu
                     if (msg.getType() == GameMessage.MessageType.CONNECT) {
-                        this.playerId = msg.getSenderId();
+                        boolean valid = false;
+                        String playerName = "Unknown";
                         
-                        // Jeśli mamy providera stanu (jesteśmy hostem), wyślij stan gry
-                        if (gameStateProvider != null) {
-                            GameState currentState = gameStateProvider.get();
-                            if (currentState != null) {
-                                send(new GameMessage(
-                                    GameMessage.MessageType.GAME_STATE_SYNC,
-                                    NetworkManager.this.playerId,
-                                    this.playerId, // Wyślij tylko do tego klienta
-                                    currentState
-                                ));
+                        Object payload = msg.getPayload();
+                        if (payload instanceof String[] parts && parts.length >= 2) {
+                            String code = parts[0];
+                            playerName = parts[1];
+                            
+                            // Validate Room Code
+                            if (NetworkManager.this.roomCode != null && !NetworkManager.this.roomCode.equals(code)) {
+                                System.out.println("Odrzucono połączenie: nieprawidłowy kod pokoju. Otrzymano: " + code + ", Oczekiwano: " + NetworkManager.this.roomCode);
+                                send(new GameMessage(GameMessage.MessageType.DISCONNECT, NetworkManager.this.playerId, "Invalid Room Code"));
+                                close();
+                                return;
+                            }
+                            valid = true;
+                        } else if (payload instanceof String name) {
+                            // Support legacy/simple connection if code validation disabled
+                            if (NetworkManager.this.roomCode != null) {
+                                System.out.println("Odrzucono połączenie: brak kodu pokoju (legacy format).");
+                                send(new GameMessage(GameMessage.MessageType.DISCONNECT, NetworkManager.this.playerId, "Room Code Required"));
+                                close();
+                                return;
+                            }
+                            playerName = name;
+                            valid = true;
+                        }
+                        
+                        if (valid) {
+                            this.playerId = msg.getSenderId();
+                            
+                            GameMessage internalMsg = new GameMessage(GameMessage.MessageType.CONNECT, msg.getSenderId(), playerName);
+                            
+                            // Jeśli mamy providera stanu (jesteśmy hostem), wyślij stan gry
+                            if (gameStateProvider != null) {
+                                GameState currentState = gameStateProvider.get();
+                                if (currentState != null) {
+                                    send(new GameMessage(
+                                        GameMessage.MessageType.GAME_STATE_SYNC,
+                                        NetworkManager.this.playerId,
+                                        this.playerId, // Wyślij tylko do tego klienta
+                                        currentState
+                                    ));
+                                }
+                            }
+                            
+                            if (messageHandler != null) {
+                                messageHandler.accept(internalMsg);
+                            }
+                            
+                            GameMessage broadcastMsg = new GameMessage(GameMessage.MessageType.CONNECT, msg.getSenderId(), playerName);
+                            broadcastMsg.setBroadcast(true);
+
+                            for (ClientHandler other : clients) {
+                                if (other != this) {
+                                    other.send(broadcastMsg);
+                                }
                             }
                         }
-                    }
-                    
-                    // Przekaż do handlera hosta
-                    if (messageHandler != null) {
-                        messageHandler.accept(msg);
-                    }
-                    
-                    // Rozgłoś do innych klientów (jeśli broadcast)
-                    if (msg.isBroadcast()) {
-                        for (ClientHandler other : clients) {
-                            if (other != this) {
-                                other.send(msg);
+                    } else {
+                        // Inne wiadomości
+                        if (messageHandler != null) {
+                            messageHandler.accept(msg);
+                        }
+                        
+                        if (msg.isBroadcast()) {
+                            for (ClientHandler other : clients) {
+                                if (other != this) {
+                                    other.send(msg);
+                                }
                             }
                         }
                     }
@@ -388,7 +560,7 @@ public class NetworkManager {
                 // Klient się rozłączył
             } catch (IOException | ClassNotFoundException e) {
                 if (running) {
-                    System.err.println("Błąd klienta: " + e.getMessage());
+                    // System.err.println("Błąd klienta: " + e.getMessage());
                 }
             } finally {
                 close();
