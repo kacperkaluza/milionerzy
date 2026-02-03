@@ -86,9 +86,9 @@ public class NetworkIntegrationTest {
             }
         });
         
-        hostManager.startHost(TEST_PORT);
+        hostManager.startHost(TEST_PORT, "TEST");
         Thread.sleep(100);
-        client1Manager.connectToHost("localhost", TEST_PORT, "player1");
+        client1Manager.connectToHost("localhost", TEST_PORT, "player1", "TEST");
         Thread.sleep(200);
         
         List<Player> players = new ArrayList<>();
@@ -138,9 +138,9 @@ public class NetworkIntegrationTest {
             }
         });
         
-        hostManager.startHost(TEST_PORT);
+        hostManager.startHost(TEST_PORT, "TEST");
         Thread.sleep(100);
-        client1Manager.connectToHost("localhost", TEST_PORT, "player1");
+        client1Manager.connectToHost("localhost", TEST_PORT, "player1", "TEST");
         Thread.sleep(200);
         
         List<Player> players = new ArrayList<>();
@@ -212,9 +212,9 @@ public class NetworkIntegrationTest {
             }
         });
         
-        hostManager.startHost(TEST_PORT);
+        hostManager.startHost(TEST_PORT, "TEST");
         Thread.sleep(100);
-        client1Manager.connectToHost("localhost", TEST_PORT, "player1");
+        client1Manager.connectToHost("localhost", TEST_PORT, "player1", "TEST");
         Thread.sleep(200);
         
         List<Player> players = new ArrayList<>();
@@ -288,10 +288,10 @@ public class NetworkIntegrationTest {
             }
         });
         
-        hostManager.startHost(TEST_PORT);
+        hostManager.startHost(TEST_PORT, "TEST");
         Thread.sleep(100);
-        client1Manager.connectToHost("localhost", TEST_PORT, "player1");
-        client2Manager.connectToHost("localhost", TEST_PORT, "player2");
+        client1Manager.connectToHost("localhost", TEST_PORT, "player1", "TEST");
+        client2Manager.connectToHost("localhost", TEST_PORT, "player2", "TEST");
         Thread.sleep(200);
         
         Player host = new Player("host", "Host", 1500);
@@ -334,9 +334,9 @@ public class NetworkIntegrationTest {
             }
         });
         
-        hostManager.startHost(TEST_PORT);
+        hostManager.startHost(TEST_PORT, "TEST");
         Thread.sleep(100);
-        client1Manager.connectToHost("localhost", TEST_PORT, "player1");
+        client1Manager.connectToHost("localhost", TEST_PORT, "player1", "TEST");
         Thread.sleep(200);
         
         Player host = new Player("host", "Host", 1500);

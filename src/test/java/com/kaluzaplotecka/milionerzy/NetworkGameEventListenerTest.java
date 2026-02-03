@@ -72,9 +72,9 @@ public class NetworkGameEventListenerTest {
             }
         });
         
-        hostManager.startHost(TEST_PORT);
+        hostManager.startHost(TEST_PORT, "TEST");
         Thread.sleep(100);
-        clientManager.connectToHost("localhost", TEST_PORT, "Client");
+        clientManager.connectToHost("localhost", TEST_PORT, "Client", "TEST");
         Thread.sleep(200);
         
         NetworkGameEventListener listener = new NetworkGameEventListener(hostManager, () -> gameState);
@@ -105,9 +105,9 @@ public class NetworkGameEventListenerTest {
             }
         });
         
-        hostManager.startHost(TEST_PORT);
+        hostManager.startHost(TEST_PORT, "TEST");
         Thread.sleep(100);
-        clientManager.connectToHost("localhost", TEST_PORT, "Client");
+        clientManager.connectToHost("localhost", TEST_PORT, "Client", "TEST");
         Thread.sleep(200);
         
         NetworkGameEventListener listener = new NetworkGameEventListener(hostManager, () -> gameState);
@@ -137,9 +137,9 @@ public class NetworkGameEventListenerTest {
             }
         });
         
-        hostManager.startHost(TEST_PORT);
+        hostManager.startHost(TEST_PORT, "TEST");
         Thread.sleep(100);
-        clientManager.connectToHost("localhost", TEST_PORT, "Client");
+        clientManager.connectToHost("localhost", TEST_PORT, "Client", "TEST");
         Thread.sleep(200);
         
         NetworkGameEventListener listener = new NetworkGameEventListener(hostManager, () -> gameState);
@@ -190,9 +190,9 @@ public class NetworkGameEventListenerTest {
             }
         });
         
-        hostManager.startHost(TEST_PORT);
+        hostManager.startHost(TEST_PORT, "TEST");
         Thread.sleep(100);
-        clientManager.connectToHost("localhost", TEST_PORT, "Client");
+        clientManager.connectToHost("localhost", TEST_PORT, "Client", "TEST");
         Thread.sleep(200);
         
         NetworkGameEventListener listener = new NetworkGameEventListener(hostManager, () -> gameState);
